@@ -1,25 +1,29 @@
 import { PrismaClient } from '@prisma/client';
 import { SquareApiClient } from './squareClient';
-import { QuickBooksClient, QBSalesReceiptData } from './quickBooksClient';
+import { QuickBooksClient } from './quickBooksClient';
 import { SquareWebhookPayload } from '../schemas/webhookSchema';
+import { MappingEngine, SquareOrder, MappingContext } from './mapping';
 
 export class OrderProcessor {
   constructor(
     private prismaClient: PrismaClient,
     private squareApiClient: SquareApiClient,
-    private quickBooksClient: QuickBooksClient
+    private quickBooksClient: QuickBooksClient,
+    private mappingEngine: MappingEngine
   ) {}
 
   async processOrder(webhookPayload: SquareWebhookPayload): Promise<void> {
-    console.log('🔄 Starting order processing for:', webhookPayload.data.id);
+    const orderId = webhookPayload.data.object.order.id;
+    console.log(`🔄 Starting order processing for: ${orderId}`);
 
+    let squareOrderRecord;
     try {
       // Step 1: Extract order ID from webhook payload
-      const orderId = webhookPayload.data.id;
+      // (Already done by Zod validation and passed as argument)
 
       // Step 2: Create initial SquareOrder record with PENDING status
       console.log('💾 Creating initial SquareOrder record...');
-      const squareOrderRecord = await this.prismaClient.squareOrder.create({
+      squareOrderRecord = await this.prismaClient.squareOrder.create({
         data: {
           squareOrderId: orderId,
           status: 'PENDING',
@@ -33,9 +37,27 @@ export class OrderProcessor {
       const squareOrderData = await this.squareApiClient.getOrderById(orderId);
       console.log('✅ Square order fetched successfully');
 
-      // Step 4: Transform Square order data to QuickBooks format
-      console.log('🔄 Transforming data for QuickBooks...');
-      const qbReceiptData = this.transformSquareToQB(squareOrderData);
+      // Step 4: Transform Square order data to QuickBooks format using MappingEngine
+      console.log(
+        '🔄 Transforming data for QuickBooks using mapping engine...'
+      );
+      const mappingContext: MappingContext = {
+        strategyName: 'default', // Use default strategy for now
+        options: {
+          defaultCustomerId: '1',
+          defaultPaymentMethodId: '1',
+        },
+        metadata: {
+          merchantId: webhookPayload.merchant_id,
+          locationId: (squareOrderData as SquareOrder).location_id,
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      const qbReceiptData = await this.mappingEngine.transform(
+        squareOrderData as SquareOrder,
+        mappingContext
+      );
 
       // Step 5: Create sales receipt in QuickBooks
       console.log('📝 Creating sales receipt in QuickBooks...');
@@ -69,94 +91,27 @@ export class OrderProcessor {
       console.error('❌ Error processing order:', error);
 
       // Try to update the order status to FAILED if we have a record
-      try {
-        const existingRecord = await this.prismaClient.squareOrder.findUnique({
-          where: { squareOrderId: webhookPayload.data.id },
-        });
-
-        if (existingRecord) {
-          await this.prismaClient.squareOrder.update({
-            where: { id: existingRecord.id },
-            data: { status: 'FAILED' },
-          });
-          console.log('📝 Updated SquareOrder status to FAILED');
+      if (squareOrderRecord) {
+        try {
+          const existingRecord = await this.prismaClient.squareOrder.findUnique(
+            {
+              where: { id: squareOrderRecord.id },
+            }
+          );
+          if (existingRecord) {
+            await this.prismaClient.squareOrder.update({
+              where: { id: squareOrderRecord.id },
+              data: { status: 'FAILED' },
+            });
+            console.log('⚠️ SquareOrder status updated to FAILED');
+          }
+        } catch (updateError) {
+          console.error('❌ Failed to update order status:', updateError);
         }
-      } catch (updateError) {
-        console.error('❌ Failed to update order status:', updateError);
       }
 
       // Re-throw the error for upstream handling
       throw error;
     }
-  }
-
-  /**
-   * Transform Square order data to QuickBooks sales receipt format
-   */
-  private transformSquareToQB(squareOrder: unknown): QBSalesReceiptData {
-    // Calculate total amount in dollars (Square uses cents)
-    const squareOrderData = squareOrder as Record<string, unknown>;
-    const totalMoney = squareOrderData['total_money'] as
-      | { amount?: number }
-      | undefined;
-    const totalAmountCents = totalMoney?.amount || 0;
-    const totalAmountDollars = totalAmountCents / 100;
-
-    // Create line items from Square order
-    const lineItems = (
-      squareOrderData['line_items'] as unknown[] | undefined
-    )?.map((item: unknown) => {
-      const itemData = item as Record<string, unknown>;
-      const itemTotalMoney = itemData['total_money'] as
-        | { amount?: number }
-        | undefined;
-      const itemBaseMoney = itemData['base_price_money'] as
-        | { amount?: number }
-        | undefined;
-      const itemAmountCents =
-        itemTotalMoney?.amount || itemBaseMoney?.amount || 0;
-      const itemAmountDollars = itemAmountCents / 100;
-
-      return {
-        Amount: itemAmountDollars,
-        DetailType: 'SalesItemLineDetail' as const,
-        SalesItemLineDetail: {
-          ItemRef: {
-            value: '1', // Default service item - would need mapping in real implementation
-            name: (itemData['name'] as string) || 'Service',
-          },
-          UnitPrice: itemAmountDollars,
-          Qty: parseFloat((itemData['quantity'] as string) || '1'),
-        },
-      };
-    }) || [
-      {
-        // Fallback line item if no line items in Square order
-        Amount: totalAmountDollars,
-        DetailType: 'SalesItemLineDetail' as const,
-        SalesItemLineDetail: {
-          ItemRef: {
-            value: '1',
-            name: 'Service',
-          },
-          UnitPrice: totalAmountDollars,
-          Qty: 1,
-        },
-      },
-    ];
-
-    return {
-      CustomerRef: {
-        value: '1', // Default customer - would need mapping in real implementation
-        name: 'Square Customer',
-      },
-      Line: lineItems,
-      TotalAmt: totalAmountDollars,
-      PaymentRefNum: `SQ-${(squareOrderData['id'] as string) || 'unknown'}`, // Use Square order ID as reference
-      PaymentMethodRef: {
-        value: '1', // Default payment method
-        name: 'Credit Card',
-      },
-    };
   }
 }

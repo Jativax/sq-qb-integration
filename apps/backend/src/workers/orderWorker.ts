@@ -1,31 +1,42 @@
-import { Worker, Job } from 'bullmq';
+import { Worker, Job, Queue } from 'bullmq';
 import { PrismaClient } from '@prisma/client';
 import { SquareApiClient } from '../services/squareClient';
 import { QuickBooksClient } from '../services/quickBooksClient';
 import { OrderProcessor } from '../services/orderProcessor';
+import { MappingEngine } from '../services/mapping';
 import { SquareWebhookPayload } from '../schemas/webhookSchema';
+import { metricsService } from '../services/metricsService';
 
 class OrderWorkerService {
   private worker: Worker;
+  private queue: Queue;
   private prismaClient: PrismaClient;
+  private jobStartTimes: Map<string, number> = new Map();
 
   constructor() {
     // Initialize Prisma client
     this.prismaClient = new PrismaClient();
+
+    const connectionConfig = {
+      host: process.env['REDIS_HOST'] || 'localhost',
+      port: parseInt(process.env['REDIS_PORT'] || '6379'),
+      ...(process.env['REDIS_PASSWORD'] && {
+        password: process.env['REDIS_PASSWORD'],
+      }),
+      db: parseInt(process.env['REDIS_DB'] || '0'),
+    };
+
+    // Initialize BullMQ queue for metrics monitoring
+    this.queue = new Queue('order-processing', {
+      connection: connectionConfig,
+    });
 
     // Initialize BullMQ worker
     this.worker = new Worker(
       'order-processing',
       this.processOrderJob.bind(this),
       {
-        connection: {
-          host: process.env['REDIS_HOST'] || 'localhost',
-          port: parseInt(process.env['REDIS_PORT'] || '6379'),
-          ...(process.env['REDIS_PASSWORD'] && {
-            password: process.env['REDIS_PASSWORD'],
-          }),
-          db: parseInt(process.env['REDIS_DB'] || '0'),
-        },
+        connection: connectionConfig,
         concurrency: parseInt(process.env['WORKER_CONCURRENCY'] || '5'), // Process up to 5 jobs concurrently
         limiter: {
           max: 10, // Maximum 10 jobs per duration
@@ -35,6 +46,7 @@ class OrderWorkerService {
     );
 
     this.setupEventHandlers();
+    this.startQueueMonitoring();
     console.log('🔄 OrderWorker started and listening for jobs');
   }
 
@@ -43,9 +55,22 @@ class OrderWorkerService {
    */
   private async processOrderJob(job: Job<SquareWebhookPayload>): Promise<void> {
     const { data: webhookPayload } = job;
+    const jobStartTime = Date.now();
+
+    // Store job start time for duration calculation
+    if (job.id) {
+      this.jobStartTimes.set(job.id, jobStartTime);
+    }
 
     console.log(
       `🔄 Processing job ${job.id} for order ${webhookPayload.data.id}`
+    );
+
+    // Record job as active
+    metricsService.recordBullMQJob(
+      'order-processing',
+      'process-order',
+      'active'
     );
 
     try {
@@ -73,11 +98,15 @@ class OrderWorkerService {
 
       await job.updateProgress(30);
 
-      // Create OrderProcessor with initialized clients
+      // Create MappingEngine with default strategy
+      const mappingEngine = new MappingEngine();
+
+      // Create OrderProcessor with initialized clients and mapping engine
       const orderProcessor = new OrderProcessor(
         this.prismaClient,
         squareApiClient,
-        quickBooksClient
+        quickBooksClient,
+        mappingEngine
       );
 
       await job.updateProgress(40);
@@ -112,11 +141,49 @@ class OrderWorkerService {
   private setupEventHandlers(): void {
     this.worker.on('completed', job => {
       console.log(`✅ Job ${job.id} completed successfully`);
+
+      // Calculate job duration and record metrics
+      if (job.id) {
+        const startTime = this.jobStartTimes.get(job.id);
+        if (startTime) {
+          const duration = (Date.now() - startTime) / 1000;
+          metricsService.recordBullMQJob(
+            'order-processing',
+            'process-order',
+            'completed',
+            duration
+          );
+          this.jobStartTimes.delete(job.id);
+        }
+
+        // Record order processing success
+        const strategy = 'default'; // Could be extracted from job data if needed
+        metricsService.recordOrderProcessed('success', strategy);
+      }
     });
 
     this.worker.on('failed', (job, err) => {
       if (job) {
         console.error(`❌ Job ${job.id} failed:`, err.message);
+
+        // Calculate job duration and record metrics
+        if (job.id) {
+          const startTime = this.jobStartTimes.get(job.id);
+          if (startTime) {
+            const duration = (Date.now() - startTime) / 1000;
+            metricsService.recordBullMQJob(
+              'order-processing',
+              'process-order',
+              'failed',
+              duration
+            );
+            this.jobStartTimes.delete(job.id);
+          }
+
+          // Record order processing failure
+          const strategy = 'default'; // Could be extracted from job data if needed
+          metricsService.recordOrderProcessed('failed', strategy);
+        }
 
         // Log if this was the final attempt
         if (job.attemptsMade >= (job.opts.attempts || 1)) {
@@ -142,12 +209,37 @@ class OrderWorkerService {
   }
 
   /**
+   * Start monitoring queue depth metrics
+   */
+  private startQueueMonitoring(): void {
+    // Update queue metrics every 15 seconds
+    setInterval(async () => {
+      try {
+        const queueCounts = await this.queue.getJobCounts();
+
+        metricsService.updateQueueDepth(
+          'order-processing',
+          queueCounts['waiting'] || 0,
+          queueCounts['active'] || 0,
+          queueCounts['completed'] || 0,
+          queueCounts['failed'] || 0
+        );
+      } catch (error) {
+        console.error('❌ Error updating queue metrics:', error);
+      }
+    }, 15000); // 15 seconds interval
+
+    console.log('📊 Queue depth monitoring started (15s interval)');
+  }
+
+  /**
    * Graceful shutdown of the worker
    */
   async close(): Promise<void> {
     console.log('🛑 Shutting down OrderWorker...');
 
     await this.worker.close();
+    await this.queue.close();
     await this.prismaClient.$disconnect();
 
     console.log('✅ OrderWorker shutdown complete');

@@ -70,6 +70,63 @@ export class QueueService {
   }
 
   /**
+   * Get all failed jobs from the queue
+   */
+  async getFailedJobs(): Promise<
+    Array<{
+      id: string;
+      data: SquareWebhookPayload;
+      failedReason: string;
+      attemptsMade: number;
+      timestamp: Date;
+    }>
+  > {
+    const failedJobs = await this.queue.getFailed();
+
+    return failedJobs.map(job => ({
+      id: job.id as string,
+      data: job.data as SquareWebhookPayload,
+      failedReason: job.failedReason || 'Unknown error',
+      attemptsMade: job.attemptsMade,
+      timestamp: new Date(job.timestamp),
+    }));
+  }
+
+  /**
+   * Retry a specific failed job by its ID
+   */
+  async retryJob(jobId: string): Promise<boolean> {
+    try {
+      const job = await this.queue.getJob(jobId);
+
+      if (!job) {
+        console.error(`❌ Job ${jobId} not found`);
+        return false;
+      }
+
+      if (job.finishedOn && !job.failedReason) {
+        console.error(`❌ Job ${jobId} is not in failed state`);
+        return false;
+      }
+
+      // Retry the job
+      await job.retry();
+      console.log(`🔄 Job ${jobId} retried successfully`);
+      return true;
+    } catch (error) {
+      console.error(`❌ Failed to retry job ${jobId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Get the underlying queue instance for advanced operations
+   */
+  getQueue() {
+    return this.queue;
+  }
+
+  /**
    * Graceful shutdown of the queue
    */
   async close(): Promise<void> {

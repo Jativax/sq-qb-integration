@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { metricsService } from './metricsService';
 
 export interface SquareOrder {
   id: string;
@@ -72,6 +73,7 @@ export class SquareApiClient {
     }
 
     const url = `${this.baseURL}/v2/orders/${orderId}`;
+    const startTime = Date.now();
 
     try {
       const response = await fetch(url, {
@@ -82,6 +84,16 @@ export class SquareApiClient {
           'Content-Type': 'application/json',
         },
       });
+
+      const duration = (Date.now() - startTime) / 1000;
+
+      // Record API call metrics
+      metricsService.recordSquareApiCall(
+        '/v2/orders/{orderId}',
+        'GET',
+        response.status,
+        duration
+      );
 
       const responseBody =
         (await response.json()) as SquareApiResponse<SquareOrder>;
@@ -103,6 +115,15 @@ export class SquareApiClient {
 
       return responseBody.order;
     } catch (error) {
+      // Record failed API call metrics if we haven't already
+      const duration = (Date.now() - startTime) / 1000;
+      metricsService.recordSquareApiCall(
+        '/v2/orders/{orderId}',
+        'GET',
+        500, // Assume 500 for network/parsing errors
+        duration
+      );
+
       // Re-throw with more context if it's a network error
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new Error('Network error');

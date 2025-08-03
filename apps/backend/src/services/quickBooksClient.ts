@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { metricsService } from './metricsService';
 
 // QuickBooks API Type Definitions
 export interface QBCustomerRef {
@@ -125,6 +126,24 @@ export class QuickBooksClient {
     }
 
     const url = `${this.baseURL}/v3/company/${this.realmId}/salesreceipt`;
+    const startTime = Date.now();
+
+    // Check for forced failure (for testing purposes)
+    if (process.env['FORCE_QB_FAILURE'] === 'true') {
+      console.log(
+        '🔧 Forced failure mode enabled - simulating QuickBooks API error'
+      );
+      // Disable forced failure after first use
+      delete process.env['FORCE_QB_FAILURE'];
+      const duration = (Date.now() - startTime) / 1000;
+      metricsService.recordQuickBooksApiCall(
+        '/v3/company/{realmId}/salesreceipt',
+        'POST',
+        500,
+        duration
+      );
+      throw new Error('Forced QuickBooks API failure for testing');
+    }
 
     try {
       const response = await fetch(url, {
@@ -136,6 +155,16 @@ export class QuickBooksClient {
         },
         body: JSON.stringify(salesReceiptData),
       });
+
+      const duration = (Date.now() - startTime) / 1000;
+
+      // Record API call metrics
+      metricsService.recordQuickBooksApiCall(
+        '/v3/company/{realmId}/salesreceipt',
+        'POST',
+        response.status,
+        duration
+      );
 
       const responseBody = (await response.json()) as
         | QBSuccessResponse
@@ -166,6 +195,15 @@ export class QuickBooksClient {
 
       return successResponse.QueryResponse.SalesReceipt[0];
     } catch (error) {
+      // Record failed API call metrics if we haven't already
+      const duration = (Date.now() - startTime) / 1000;
+      metricsService.recordQuickBooksApiCall(
+        '/v3/company/{realmId}/salesreceipt',
+        'POST',
+        500, // Assume 500 for network/parsing errors
+        duration
+      );
+
       // Re-throw with more context if it's a network error
       if (
         error instanceof Error &&
@@ -185,6 +223,7 @@ export class QuickBooksClient {
     }
 
     const url = `${this.baseURL}/v3/company/${this.realmId}/salesreceipt/${receiptId}`;
+    const startTime = Date.now();
 
     try {
       const response = await fetch(url, {
@@ -194,6 +233,16 @@ export class QuickBooksClient {
           Accept: 'application/json',
         },
       });
+
+      const duration = (Date.now() - startTime) / 1000;
+
+      // Record API call metrics
+      metricsService.recordQuickBooksApiCall(
+        '/v3/company/{realmId}/salesreceipt/{receiptId}',
+        'GET',
+        response.status,
+        duration
+      );
 
       const responseBody = (await response.json()) as
         | QBSuccessResponse
@@ -224,6 +273,15 @@ export class QuickBooksClient {
 
       return successResponse.QueryResponse.SalesReceipt[0];
     } catch (error) {
+      // Record failed API call metrics if we haven't already
+      const duration = (Date.now() - startTime) / 1000;
+      metricsService.recordQuickBooksApiCall(
+        '/v3/company/{realmId}/salesreceipt/{receiptId}',
+        'GET',
+        500, // Assume 500 for network/parsing errors
+        duration
+      );
+
       // Re-throw with more context if it's a network error
       if (
         error instanceof Error &&
