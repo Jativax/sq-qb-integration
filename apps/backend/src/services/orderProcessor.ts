@@ -1,12 +1,14 @@
-import { PrismaClient } from '@prisma/client';
 import { SquareApiClient } from './squareClient';
 import { QuickBooksClient } from './quickBooksClient';
 import { SquareWebhookPayload } from '../schemas/webhookSchema';
 import { MappingEngine, SquareOrder, MappingContext } from './mapping';
+import logger from './logger';
+import { getPrismaClient } from './db';
 
 export class OrderProcessor {
+  private prismaClient = getPrismaClient();
+
   constructor(
-    private prismaClient: PrismaClient,
     private squareApiClient: SquareApiClient,
     private quickBooksClient: QuickBooksClient,
     private mappingEngine: MappingEngine
@@ -14,7 +16,7 @@ export class OrderProcessor {
 
   async processOrder(webhookPayload: SquareWebhookPayload): Promise<void> {
     const orderId = webhookPayload.data.object.order.id;
-    console.log(`🔄 Starting order processing for: ${orderId}`);
+    logger.info({ orderId }, 'Starting order processing');
 
     let squareOrderRecord;
     try {
@@ -22,7 +24,7 @@ export class OrderProcessor {
       // (Already done by Zod validation and passed as argument)
 
       // Step 2: Create initial SquareOrder record with PENDING status
-      console.log('💾 Creating initial SquareOrder record...');
+      logger.debug('Creating initial SquareOrder record...');
       squareOrderRecord = await this.prismaClient.squareOrder.create({
         data: {
           squareOrderId: orderId,
@@ -30,17 +32,18 @@ export class OrderProcessor {
           payload: webhookPayload as never, // Store the full webhook payload
         },
       });
-      console.log('✅ SquareOrder record created:', squareOrderRecord.id);
+      logger.info(
+        { squareOrderRecordId: squareOrderRecord.id },
+        'SquareOrder record created'
+      );
 
       // Step 3: Fetch full order details from Square API
-      console.log('🔍 Fetching order details from Square API...');
+      logger.debug({ orderId }, 'Fetching order details from Square API...');
       const squareOrderData = await this.squareApiClient.getOrderById(orderId);
-      console.log('✅ Square order fetched successfully');
+      logger.info({ orderId }, 'Square order fetched successfully');
 
       // Step 4: Transform Square order data to QuickBooks format using MappingEngine
-      console.log(
-        '🔄 Transforming data for QuickBooks using mapping engine...'
-      );
+      logger.debug('Transforming data for QuickBooks using mapping engine...');
       const mappingContext: MappingContext = {
         strategyName: 'default', // Use default strategy for now
         options: {
@@ -60,14 +63,14 @@ export class OrderProcessor {
       );
 
       // Step 5: Create sales receipt in QuickBooks
-      console.log('📝 Creating sales receipt in QuickBooks...');
+      logger.debug('Creating sales receipt in QuickBooks...');
       const qbReceipt = await this.quickBooksClient.createSalesReceipt(
         qbReceiptData
       );
-      console.log('✅ QuickBooks receipt created:', qbReceipt.Id);
+      logger.info({ qbReceiptId: qbReceipt.Id }, 'QuickBooks receipt created');
 
       // Step 6: Create QuickBooksReceipt record and link to SquareOrder
-      console.log('💾 Creating QuickBooksReceipt record...');
+      logger.debug('Creating QuickBooksReceipt record...');
       await this.prismaClient.quickBooksReceipt.create({
         data: {
           qbReceiptId: qbReceipt.Id!,
@@ -77,18 +80,24 @@ export class OrderProcessor {
           squareOrderId: squareOrderRecord.id,
         },
       });
-      console.log('✅ QuickBooksReceipt record created');
+      logger.info(
+        { qbReceiptId: qbReceipt.Id },
+        'QuickBooksReceipt record created'
+      );
 
       // Step 7: Update SquareOrder status to COMPLETED
       await this.prismaClient.squareOrder.update({
         where: { id: squareOrderRecord.id },
         data: { status: 'COMPLETED' },
       });
-      console.log('✅ SquareOrder status updated to COMPLETED');
+      logger.info(
+        { squareOrderRecordId: squareOrderRecord.id },
+        'SquareOrder status updated to COMPLETED'
+      );
 
-      console.log('🎉 Order processing completed successfully!');
+      logger.info({ orderId }, 'Order processing completed successfully!');
     } catch (error) {
-      console.error('❌ Error processing order:', error);
+      logger.error({ err: error, orderId }, 'Error processing order');
 
       // Try to update the order status to FAILED if we have a record
       if (squareOrderRecord) {
@@ -103,10 +112,16 @@ export class OrderProcessor {
               where: { id: squareOrderRecord.id },
               data: { status: 'FAILED' },
             });
-            console.log('⚠️ SquareOrder status updated to FAILED');
+            logger.warn(
+              { squareOrderRecordId: squareOrderRecord.id },
+              'SquareOrder status updated to FAILED'
+            );
           }
         } catch (updateError) {
-          console.error('❌ Failed to update order status:', updateError);
+          logger.error(
+            { err: updateError, squareOrderRecordId: squareOrderRecord.id },
+            'Failed to update order status'
+          );
         }
       }
 

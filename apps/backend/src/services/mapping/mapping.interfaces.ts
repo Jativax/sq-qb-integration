@@ -8,6 +8,7 @@ export interface SquareOrder {
   id: string;
   location_id: string;
   order_id?: string;
+  customer_id?: string;
   state: 'OPEN' | 'COMPLETED' | 'CANCELED';
   version?: number;
   created_at: string;
@@ -220,12 +221,21 @@ export interface MappingContext {
     defaultPaymentMethodId?: string;
     /** Whether to include taxes as separate line items */
     includeTaxAsLineItems?: boolean;
-    /** Whether to include discounts as separate line items */
+    /** Whether to include discounts as separate line items (deprecated - discounts are now always included) */
     includeDiscountsAsLineItems?: boolean;
+    /** Whether to include service charges as separate line items */
+    includeServiceChargesAsLineItems?: boolean;
     /** Custom item mapping overrides */
     itemMapping?: Record<string, { id: string; name: string }>;
     /** Custom tax mapping */
     taxMapping?: Record<string, { id: string; name: string }>;
+    /** Custom service charge mapping for tips and surcharges */
+    serviceChargeMapping?: {
+      tipItemId?: string;
+      tipItemName?: string;
+      surchargeItemId?: string;
+      surchargeItemName?: string;
+    };
   };
   /** Metadata about the transformation for logging/debugging */
   metadata?: {

@@ -1,3 +1,10 @@
+/**
+ * Queue Monitor Page Component
+ *
+ * This component provides real-time monitoring of the background
+ * job processing queue for order synchronization.
+ */
+
 export function QueueMonitor() {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -6,3 +13,5 @@ export function QueueMonitor() {
     </div>
   );
 }
+
+export default QueueMonitor;

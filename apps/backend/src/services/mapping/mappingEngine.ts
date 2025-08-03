@@ -8,6 +8,7 @@ import {
 } from './mapping.interfaces';
 import { QBSalesReceiptData } from '../quickBooksClient';
 import { DefaultMappingStrategy } from './defaultMappingStrategy';
+import logger from '../logger';
 import { metricsService } from '../metricsService';
 
 /**
@@ -21,7 +22,7 @@ export class MappingEngine implements MappingStrategyRegistry {
   constructor() {
     // Register the default strategy
     this.register(new DefaultMappingStrategy());
-    console.log('🔧 MappingEngine initialized with default strategy');
+    logger.info('MappingEngine initialized with default strategy');
   }
 
   /**
@@ -30,12 +31,16 @@ export class MappingEngine implements MappingStrategyRegistry {
    */
   register(strategy: MappingStrategy): void {
     if (this.strategies.has(strategy.name)) {
-      console.warn(`⚠️ Overriding existing mapping strategy: ${strategy.name}`);
+      logger.warn(
+        { strategyName: strategy.name },
+        'Overriding existing mapping strategy'
+      );
     }
 
     this.strategies.set(strategy.name, strategy);
-    console.log(
-      `✅ Registered mapping strategy: ${strategy.name} - ${strategy.description}`
+    logger.info(
+      { strategyName: strategy.name, description: strategy.description },
+      'Registered mapping strategy'
     );
   }
 
@@ -55,8 +60,12 @@ export class MappingEngine implements MappingStrategyRegistry {
 
     // Try to fallback to default strategy if requested strategy not found
     if (strategyName !== this.defaultStrategyName) {
-      console.warn(
-        `⚠️ Strategy '${strategyName}' not found, falling back to default strategy`
+      logger.warn(
+        {
+          requestedStrategy: strategyName,
+          fallbackStrategy: this.defaultStrategyName,
+        },
+        'Strategy not found, falling back to default strategy'
       );
       const defaultStrategy = this.strategies.get(this.defaultStrategyName);
       if (defaultStrategy) {
@@ -100,8 +109,9 @@ export class MappingEngine implements MappingStrategyRegistry {
     const strategyName = context?.strategyName;
     const strategy = this.getStrategy(strategyName);
 
-    console.log(
-      `🔄 Using mapping strategy '${strategy.name}' for order ${order.id}`
+    logger.info(
+      { strategyName: strategy.name, orderId: order.id },
+      'Using mapping strategy for order'
     );
 
     // Validate that the strategy can handle this order
@@ -121,8 +131,9 @@ export class MappingEngine implements MappingStrategyRegistry {
       // Record successful strategy usage
       metricsService.recordMappingStrategyUsed(strategy.name, true);
 
-      console.log(
-        `✅ Successfully transformed order ${order.id} using strategy '${strategy.name}'`
+      logger.info(
+        { orderId: order.id, strategyName: strategy.name },
+        'Successfully transformed order using strategy'
       );
       return result;
     } catch (error) {
@@ -232,14 +243,14 @@ export class MappingEngine implements MappingStrategyRegistry {
    */
   unregister(name: string): boolean {
     if (name === this.defaultStrategyName) {
-      console.warn(`⚠️ Cannot unregister default strategy: ${name}`);
+      logger.warn({ strategyName: name }, 'Cannot unregister default strategy');
       return false;
     }
 
     const existed = this.strategies.has(name);
     if (existed) {
       this.strategies.delete(name);
-      console.log(`✅ Unregistered mapping strategy: ${name}`);
+      logger.info({ strategyName: name }, 'Unregistered mapping strategy');
     }
 
     return existed;
@@ -273,6 +284,6 @@ export class MappingEngine implements MappingStrategyRegistry {
       this.strategies.set(this.defaultStrategyName, defaultStrategy);
     }
 
-    console.log('🧹 Cleared all non-default mapping strategies');
+    logger.info('Cleared all non-default mapping strategies');
   }
 }

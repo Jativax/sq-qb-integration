@@ -60,6 +60,110 @@ export interface RetryJobResponse {
   timestamp: string;
 }
 
+export interface AuditLog {
+  id: string;
+  timestamp: string;
+  action: string;
+  userId: string | null;
+  details: Record<string, any>;
+  createdAt: string;
+}
+
+export interface AuditLogsResponse {
+  status: string;
+  data: AuditLog[];
+  count: number;
+  filters: {
+    limit: number;
+    action: string | null;
+    userId: string | null;
+  };
+  timestamp: string;
+}
+
+export interface AuditLogStats {
+  totalLogs: number;
+  actionCounts: Record<string, number>;
+  userCounts: Record<string, number>;
+  mostCommonAction: string;
+  mostActiveUser: string;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    role: 'ADMIN' | 'VIEWER';
+  };
+}
+
+export interface UserInfo {
+  id: string;
+  email: string;
+  role: 'ADMIN' | 'VIEWER';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AnalyticsMetrics {
+  jobsProcessed: {
+    completed: number;
+    failed: number;
+    active: number;
+    waiting: number;
+  };
+  queueDepth: {
+    waiting: number;
+    active: number;
+    completed: number;
+    failed: number;
+  };
+  apiMetrics: {
+    totalRequests: number;
+    averageResponseTime: number;
+    requestsP95: number;
+  };
+  externalApiMetrics: {
+    square: {
+      totalCalls: number;
+      averageResponseTime: number;
+      p95ResponseTime: number;
+    };
+    quickbooks: {
+      totalCalls: number;
+      averageResponseTime: number;
+      p95ResponseTime: number;
+    };
+  };
+  webhookMetrics: {
+    totalReceived: number;
+    accepted: number;
+    rejected: number;
+    failed: number;
+  };
+  orderMetrics: {
+    totalProcessed: number;
+    successful: number;
+    failed: number;
+    successRate: number;
+  };
+  systemMetrics: {
+    uptime: number;
+    memoryUsage: {
+      used: number;
+      total: number;
+      percentage: number;
+    };
+    cpuUsage: number;
+  };
+}
+
 export interface ApiResponse<T> {
   data: T;
   status: string;
@@ -78,9 +182,16 @@ class ApiClient {
       },
     });
 
-    // Request interceptor
+    // Request interceptor - add auth token and logging
     this.client.interceptors.request.use(
       config => {
+        // Add auth token if available
+        const token = this.getAuthToken();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+
+        // Log request
         console.log(
           `Making ${config.method?.toUpperCase()} request to ${config.url}`
         );
@@ -91,13 +202,21 @@ class ApiClient {
       }
     );
 
-    // Response interceptor
+    // Response interceptor for handling auth errors
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
         return response;
       },
       error => {
         console.error('API Error:', error.response?.data || error.message);
+
+        // Handle auth errors
+        if (error.response?.status === 401) {
+          // Token expired or invalid, clear auth and redirect to login
+          this.clearAuth();
+          window.location.href = '/login';
+        }
+
         return Promise.reject(error);
       }
     );
@@ -195,6 +314,113 @@ class ApiClient {
       `/api/v1/jobs/${jobId}/retry`
     );
     return response.data;
+  }
+
+  // Get audit logs with optional filtering
+  async getAuditLogs(params?: {
+    limit?: number;
+    action?: string;
+    userId?: string;
+  }): Promise<AuditLog[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    if (params?.action) searchParams.append('action', params.action);
+    if (params?.userId) searchParams.append('userId', params.userId);
+
+    const queryString = searchParams.toString();
+    const url = `/api/v1/audit-logs${queryString ? `?${queryString}` : ''}`;
+
+    const response = await this.client.get<AuditLogsResponse>(url);
+    return response.data.data;
+  }
+
+  // Get available audit log actions for filtering
+  async getAuditLogActions(): Promise<string[]> {
+    const response = await this.client.get<{
+      status: string;
+      data: string[];
+      count: number;
+      timestamp: string;
+    }>('/api/v1/audit-logs/actions');
+    return response.data.data;
+  }
+
+  // Get audit log statistics
+  async getAuditLogStats(): Promise<AuditLogStats> {
+    const response = await this.client.get<{
+      status: string;
+      data: AuditLogStats;
+      timestamp: string;
+    }>('/api/v1/audit-logs/stats');
+    return response.data.data;
+  }
+
+  // Analytics methods
+  async getAnalyticsMetrics(): Promise<AnalyticsMetrics> {
+    const response = await this.client.get<{
+      status: string;
+      data: AnalyticsMetrics;
+      timestamp: string;
+    }>('/api/v1/analytics/metrics');
+    return response.data.data;
+  }
+
+  // Authentication methods
+  async login(credentials: LoginCredentials): Promise<LoginResponse> {
+    const response = await this.client.post<{
+      status: string;
+      data: LoginResponse;
+    }>('/api/v1/auth/login', credentials);
+
+    const loginData = response.data.data;
+
+    // Store token securely
+    this.setAuthToken(loginData.token);
+
+    return loginData;
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await this.client.post('/api/v1/auth/logout');
+    } finally {
+      // Always clear auth data, even if logout request fails
+      this.clearAuth();
+    }
+  }
+
+  async getCurrentUser(): Promise<UserInfo> {
+    const response = await this.client.get<{
+      status: string;
+      data: { user: UserInfo };
+    }>('/api/v1/auth/me');
+    return response.data.data.user;
+  }
+
+  async refreshSession(): Promise<UserInfo> {
+    const response = await this.client.post<{
+      status: string;
+      data: { user: UserInfo };
+    }>('/api/v1/auth/refresh');
+    return response.data.data.user;
+  }
+
+  // Auth token management
+  private getAuthToken(): string | null {
+    return localStorage.getItem('auth_token');
+  }
+
+  private setAuthToken(token: string): void {
+    localStorage.setItem('auth_token', token);
+  }
+
+  private clearAuth(): void {
+    localStorage.removeItem('auth_token');
+  }
+
+  // Check if user is authenticated
+  isAuthenticated(): boolean {
+    return !!this.getAuthToken();
   }
 }
 

@@ -1,5 +1,9 @@
 import express from 'express';
 import { QueueService } from '../services/queueService';
+import logger from '../services/logger';
+import auditService from '../services/auditService';
+import { authMiddleware } from '../middleware/authMiddleware';
+import { requireAdmin } from '../middleware/rbacMiddleware';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const router: any = express.Router();
@@ -7,39 +11,47 @@ const router: any = express.Router();
 /**
  * GET /failed
  * Retrieves all failed jobs from the order-processing queue
+ * Requires authentication
  */
-router.get('/failed', async (req: express.Request, res: express.Response) => {
-  try {
-    console.log('📋 Fetching failed jobs...');
+router.get(
+  '/failed',
+  authMiddleware,
+  async (req: express.Request, res: express.Response) => {
+    try {
+      logger.info('Fetching failed jobs...');
 
-    const queueService = new QueueService();
-    const failedJobs = await queueService.getFailedJobs();
+      const queueService = new QueueService();
+      const failedJobs = await queueService.getFailedJobs();
 
-    console.log(`✅ Retrieved ${failedJobs.length} failed jobs`);
+      logger.info({ count: failedJobs.length }, 'Retrieved failed jobs');
 
-    res.status(200).json({
-      status: 'success',
-      data: failedJobs,
-      count: failedJobs.length,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('❌ Error fetching failed jobs:', error);
+      res.status(200).json({
+        status: 'success',
+        data: failedJobs,
+        count: failedJobs.length,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error({ err: error }, 'Error fetching failed jobs');
 
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to retrieve failed jobs',
-      code: 'FAILED_JOBS_ERROR',
-    });
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Failed to retrieve failed jobs',
+        code: 'FAILED_JOBS_ERROR',
+      });
+    }
   }
-});
+);
 
 /**
  * POST /:jobId/retry
  * Retries a specific failed job by its ID
+ * Requires authentication and ADMIN role
  */
 router.post(
   '/:jobId/retry',
+  authMiddleware,
+  requireAdmin,
   async (req: express.Request, res: express.Response): Promise<void> => {
     try {
       const jobId = req.params['jobId'];
@@ -53,13 +65,25 @@ router.post(
         return;
       }
 
-      console.log(`🔄 Attempting to retry job: ${jobId}`);
+      logger.info({ jobId }, 'Attempting to retry job');
 
       const queueService = new QueueService();
       const retryResult = await queueService.retryJob(jobId);
 
       if (retryResult) {
-        console.log(`✅ Successfully retried job: ${jobId}`);
+        logger.info({ jobId }, 'Successfully retried job');
+
+        // Log audit event for job retry with actual user ID
+        auditService.logEvent({
+          action: 'JOB_RETRIED_BY_USER',
+          userId: req.user!.id,
+          details: {
+            jobId,
+            userEmail: req.user!.email,
+            userRole: req.user!.role,
+            timestamp: new Date().toISOString(),
+          },
+        });
 
         res.status(200).json({
           status: 'success',
@@ -68,7 +92,7 @@ router.post(
           timestamp: new Date().toISOString(),
         });
       } else {
-        console.error(`❌ Failed to retry job: ${jobId}`);
+        logger.error({ jobId }, 'Failed to retry job');
 
         res.status(404).json({
           error: 'Not Found',
@@ -78,7 +102,7 @@ router.post(
         });
       }
     } catch (error) {
-      console.error('❌ Error retrying job:', error);
+      logger.error({ err: error }, 'Error retrying job');
 
       res.status(500).json({
         error: 'Internal Server Error',

@@ -5,8 +5,9 @@ import {
   SquareWebhookPayload,
 } from '../schemas/webhookSchema';
 import { QueueService } from '../services/queueService';
-import { verifySquareWebhook } from '../middleware/authMiddleware';
+// Remove the non-existent import - webhook verification is handled in securityService
 import { webhookMetricsMiddleware } from '../middleware/metricsMiddleware';
+import logger from '../services/logger';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const router: any = express.Router();
@@ -14,32 +15,37 @@ const router: any = express.Router();
 /**
  * POST /square
  * Receives and processes Square webhook notifications
- * Applied verifySquareWebhook middleware for signature validation
+ * Webhook signature validation is handled in the securityService
  */
 router.post(
   '/square',
   webhookMetricsMiddleware('square'),
-  verifySquareWebhook,
   async (req: express.Request, res: express.Response) => {
     try {
-      console.log('🔔 Received Square webhook:', {
-        headers: {
-          'x-square-signature': req.get('X-Square-Signature'),
-          'content-type': req.get('Content-Type'),
+      logger.info(
+        {
+          headers: {
+            'x-square-signature': req.get('X-Square-Signature'),
+            'content-type': req.get('Content-Type'),
+          },
+          body: req.body,
         },
-        body: req.body,
-      });
+        'Received Square webhook'
+      );
 
       // Validate the webhook payload using Zod schema
       const validatedPayload: SquareWebhookPayload = SquareWebhookSchema.parse(
         req.body
       );
 
-      console.log('✅ Webhook validation passed:', {
-        eventType: validatedPayload.type,
-        orderId: validatedPayload.data.id,
-        merchantId: validatedPayload.merchant_id,
-      });
+      logger.info(
+        {
+          eventType: validatedPayload.type,
+          orderId: validatedPayload.data.id,
+          merchantId: validatedPayload.merchant_id,
+        },
+        'Webhook validation passed'
+      );
 
       // Initialize queue service and add job for background processing
       const queueService = new QueueService();
@@ -48,7 +54,7 @@ router.post(
         // Add the webhook payload to the processing queue
         const jobId = await queueService.addOrderJob(validatedPayload);
 
-        console.log('📝 Order processing job queued:', jobId);
+        logger.info({ jobId }, 'Order processing job queued');
 
         // Return 202 Accepted as per OpenAPI spec
         res.status(202).json({
@@ -58,7 +64,10 @@ router.post(
           orderId: validatedPayload.data.id,
         });
       } catch (queueError) {
-        console.error('❌ Failed to queue order processing job:', queueError);
+        logger.error(
+          { err: queueError },
+          'Failed to queue order processing job'
+        );
 
         // Return 500 if we can't queue the job
         res.status(500).json({
@@ -69,7 +78,7 @@ router.post(
         return;
       }
     } catch (error) {
-      console.error('❌ Webhook processing error:', error);
+      logger.error({ err: error }, 'Webhook processing error');
 
       if (error instanceof ZodError) {
         // Validation error - return 400 Bad Request

@@ -5,6 +5,7 @@ import {
   Registry,
   collectDefaultMetrics,
 } from 'prom-client';
+import logger from './logger';
 
 /**
  * Comprehensive Metrics Service for Square-QuickBooks Integration
@@ -136,7 +137,7 @@ export class MetricsService {
       registers: [this.registry],
     });
 
-    console.log('📊 MetricsService initialized with comprehensive monitoring');
+    logger.info('MetricsService initialized with comprehensive monitoring');
   }
 
   /**

@@ -1,19 +1,23 @@
 // Backend application entry point
 import express from 'express';
 import cors from 'cors';
-import prisma from './services/db';
 import webhookRoutes from './routes/webhooks';
 import jobsRoutes from './routes/jobs';
+import auditLogsRoutes from './routes/audit-logs';
+import authRoutes from './routes/auth';
+import analyticsRoutes from './routes/analytics';
 import testRoutes from './routes/test';
 import { metricsService } from './services/metricsService';
 import { metricsMiddleware } from './middleware/metricsMiddleware';
 import logger from './services/logger';
-import config from './services/config';
+import { getPrismaClient, disconnectPrisma } from './services/db';
+import config from './config';
 // Import the worker to start background job processing
 import './workers/orderWorker';
 
 const app = express();
-const PORT = config.port;
+const prisma = getPrismaClient();
+const { PORT } = config;
 
 // Middleware
 app.use(cors());
@@ -38,7 +42,7 @@ app.get('/metrics', async (req, res) => {
     res.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
     res.send(metrics);
   } catch (error) {
-    logger.error({ err: error }, '❌ Error generating metrics');
+    logger.error({ err: error }, 'Error generating metrics');
     res.status(500).send('Error generating metrics');
   }
 });
@@ -53,50 +57,56 @@ app.get('/', (req, res) => {
 });
 
 // API routes
-app.use('/api/v1/webhooks', webhookRoutes);
-app.use('/api/v1/jobs', jobsRoutes);
-app.use('/api/test', testRoutes);
+app.use('/api/v1/auth', authRoutes); // Public auth routes (login)
+app.use('/api/v1/webhooks', webhookRoutes); // Will remain public for Square webhooks
+app.use('/api/v1/jobs', jobsRoutes); // Protected with auth
+app.use('/api/v1/audit-logs', auditLogsRoutes); // Protected with auth
+app.use('/api/v1/analytics', analyticsRoutes); // Protected with auth - VIEWER role or higher
+app.use('/api/test', testRoutes); // Test routes (consider removing in production)
 
 async function startServer(): Promise<void> {
   try {
-    logger.info('🚀 SQ-QB Integration Backend starting...');
+    logger.info('SQ-QB Integration Backend starting...');
 
     // Test database connection
     await prisma.$connect();
-    logger.info('✅ Database connected successfully');
+    logger.info('Database connected successfully');
 
     // Log available models
-    logger.info('📊 Available models:');
-    logger.info('   - SquareOrder: Store raw Square order data');
     logger.info(
-      '   - QuickBooksReceipt: Track QB receipts with 1:1 relationship'
+      'Available models: SquareOrder (raw Square order data), QuickBooksReceipt (QB receipts with 1:1 relationship), SyncJob (processing jobs)'
     );
-    logger.info('   - SyncJob: Manage processing jobs');
 
     // Start the Express server
     app.listen(PORT, () => {
-      logger.info(`🌐 Server running on http://localhost:${PORT}`);
-      logger.info(`📋 API Documentation: /api/v1/webhooks/square`);
-      logger.info(`📊 Prometheus metrics: http://localhost:${PORT}/metrics`);
-      logger.info('🔄 Background job worker started for order processing');
-      logger.info('🎯 Ready to process Square to QuickBooks integrations!');
+      logger.info({ port: PORT }, 'Server running');
+      logger.info(
+        { endpoint: '/api/v1/webhooks/square' },
+        'API Documentation available'
+      );
+      logger.info(
+        { endpoint: `/metrics`, port: PORT },
+        'Prometheus metrics available'
+      );
+      logger.info('Background job worker started for order processing');
+      logger.info('Ready to process Square to QuickBooks integrations!');
     });
   } catch (error) {
-    logger.error({ err: error }, '❌ Application startup failed');
+    logger.error({ err: error }, 'Application startup failed');
     process.exit(1);
   }
 }
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
-  logger.info('🛑 Shutting down gracefully...');
-  await prisma.$disconnect();
+  logger.info('Shutting down gracefully...');
+  await disconnectPrisma();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  logger.info('🛑 Shutting down gracefully...');
-  await prisma.$disconnect();
+  logger.info('Shutting down gracefully...');
+  await disconnectPrisma();
   process.exit(0);
 });
 

@@ -5,6 +5,7 @@ import {
   MappingError,
 } from './mapping.interfaces';
 import { QBSalesReceiptData } from '../quickBooksClient';
+import logger from '../logger';
 
 /**
  * Default mapping strategy that implements the basic Square-to-QuickBooks transformation
@@ -26,8 +27,9 @@ export class DefaultMappingStrategy implements MappingStrategy {
     context?: MappingContext
   ): Promise<QBSalesReceiptData> {
     try {
-      console.log(
-        `🔄 Transforming Square order ${order.id} using ${this.name} strategy`
+      logger.info(
+        { orderId: order.id, strategy: this.name },
+        'Transforming Square order using strategy'
       );
 
       // Calculate total amount in dollars (Square uses cents)
@@ -40,7 +42,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
       // Build the QuickBooks sales receipt data
       const salesReceiptData: QBSalesReceiptData = {
         CustomerRef: {
-          value: context?.options?.defaultCustomerId || '1',
+          value: this.getCustomerId(order, context),
           name: this.getCustomerName(order, context),
         },
         Line: lineItems,
@@ -52,13 +54,14 @@ export class DefaultMappingStrategy implements MappingStrategy {
         },
       };
 
-      console.log(
-        `✅ Successfully transformed order ${order.id} to QuickBooks format`
+      logger.info(
+        { orderId: order.id },
+        'Successfully transformed order to QuickBooks format'
       );
       return salesReceiptData;
     } catch (error) {
       const errorMessage = `Failed to transform Square order ${order.id}`;
-      console.error(`❌ ${errorMessage}:`, error);
+      logger.error({ err: error, orderId: order.id }, errorMessage);
       throw new MappingError(
         errorMessage,
         this.name,
@@ -80,7 +83,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
   ): Promise<boolean> {
     // Default strategy can handle any order with basic validation
     if (!order.id) {
-      console.warn('⚠️ Order missing required ID field');
+      logger.warn('Order missing required ID field');
       return false;
     }
 
@@ -88,7 +91,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
       !order.total_money &&
       (!order.line_items || order.line_items.length === 0)
     ) {
-      console.warn('⚠️ Order has no total money and no line items');
+      logger.warn('Order has no total money and no line items');
       return false;
     }
 
@@ -120,8 +123,41 @@ export class DefaultMappingStrategy implements MappingStrategy {
         },
         includeDiscountsAsLineItems: {
           type: 'boolean',
-          description: 'Whether to include discounts as separate line items',
-          default: false,
+          description:
+            'Whether to include discounts as separate line items (deprecated - discounts are now always included)',
+          default: true,
+        },
+        includeServiceChargesAsLineItems: {
+          type: 'boolean',
+          description:
+            'Whether to include service charges (tips/surcharges) as separate line items',
+          default: true,
+        },
+        serviceChargeMapping: {
+          type: 'object',
+          description: 'Custom mapping for service charges',
+          properties: {
+            tipItemId: {
+              type: 'string',
+              description: 'QuickBooks item ID for tips',
+              default: '1',
+            },
+            tipItemName: {
+              type: 'string',
+              description: 'QuickBooks item name for tips',
+              default: 'Tip',
+            },
+            surchargeItemId: {
+              type: 'string',
+              description: 'QuickBooks item ID for surcharges',
+              default: '1',
+            },
+            surchargeItemName: {
+              type: 'string',
+              description: 'QuickBooks item name for surcharges',
+              default: 'Service Charge',
+            },
+          },
         },
         itemMapping: {
           type: 'object',
@@ -180,8 +216,8 @@ export class DefaultMappingStrategy implements MappingStrategy {
       }
     }
 
-    // Add discount line items if configured
-    if (context?.options?.includeDiscountsAsLineItems && order.discounts) {
+    // Always add discount line items (discounts should always be visible)
+    if (order.discounts && order.discounts.length > 0) {
       for (const discount of order.discounts) {
         const transformedDiscount = this.transformDiscountAsLineItem(
           discount,
@@ -189,6 +225,19 @@ export class DefaultMappingStrategy implements MappingStrategy {
         );
         if (transformedDiscount) {
           lineItems.push(transformedDiscount);
+        }
+      }
+    }
+
+    // Add service charge line items (tips and surcharges)
+    if (order.service_charges && order.service_charges.length > 0) {
+      for (const serviceCharge of order.service_charges) {
+        const transformedServiceCharge = this.transformServiceChargeAsLineItem(
+          serviceCharge,
+          context
+        );
+        if (transformedServiceCharge) {
+          lineItems.push(transformedServiceCharge);
         }
       }
     }
@@ -219,7 +268,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
    * Transform a single Square line item
    * @private
    */
-  private transformLineItem(item: any, _context?: MappingContext) {
+  private transformLineItem(item: any, context?: MappingContext) {
     const itemTotalMoney = item.total_money;
     const itemBaseMoney = item.base_price_money;
     const itemAmountCents =
@@ -314,7 +363,10 @@ export class DefaultMappingStrategy implements MappingStrategy {
    * Transform a Square discount into a QuickBooks line item
    * @private
    */
-  private transformDiscountAsLineItem(discount: any, _context?: MappingContext) {
+  private transformDiscountAsLineItem(
+    discount: any,
+    _context?: MappingContext
+  ) {
     const discountAmountCents = discount.applied_money?.amount || 0;
     const discountAmountDollars = -(discountAmountCents / 100); // Negative for discount
 
@@ -337,6 +389,86 @@ export class DefaultMappingStrategy implements MappingStrategy {
   }
 
   /**
+   * Transform a Square service charge into a QuickBooks line item
+   * @private
+   */
+  private transformServiceChargeAsLineItem(
+    serviceCharge: any,
+    context?: MappingContext
+  ) {
+    const serviceChargeAmountCents = serviceCharge.applied_money?.amount || 0;
+    const serviceChargeAmountDollars = serviceChargeAmountCents / 100; // Positive for service charge
+
+    if (serviceChargeAmountDollars === 0) {
+      return null;
+    }
+
+    // Determine if this is a tip or other surcharge
+    const isTip = this.isServiceChargeTip(serviceCharge);
+    const itemMapping = context?.options?.serviceChargeMapping;
+
+    let itemId: string;
+    let itemName: string;
+
+    if (isTip) {
+      itemId = itemMapping?.tipItemId || '1';
+      itemName = itemMapping?.tipItemName || 'Tip';
+    } else {
+      itemId = itemMapping?.surchargeItemId || '1';
+      itemName = itemMapping?.surchargeItemName || 'Service Charge';
+    }
+
+    // Add service charge name for better identification
+    const serviceChargeName = serviceCharge.name || 'Service Charge';
+    const fullName =
+      serviceChargeName.toLowerCase().includes('tip') || isTip
+        ? itemName
+        : `${itemName} - ${serviceChargeName}`;
+
+    return {
+      Amount: serviceChargeAmountDollars,
+      DetailType: 'SalesItemLineDetail' as const,
+      SalesItemLineDetail: {
+        ItemRef: {
+          value: itemId,
+          name: fullName,
+        },
+        UnitPrice: serviceChargeAmountDollars,
+        Qty: 1,
+      },
+    };
+  }
+
+  /**
+   * Determine if a service charge is a tip based on its properties
+   * @private
+   */
+  private isServiceChargeTip(serviceCharge: any): boolean {
+    // Check service charge type
+    if (serviceCharge.type === 'AUTO_GRATUITY') {
+      return true;
+    }
+
+    // Check service charge name for tip-related keywords
+    const name = (serviceCharge.name || '').toLowerCase();
+    const tipKeywords = ['tip', 'gratuity', 'service', 'auto-gratuity'];
+
+    return tipKeywords.some(keyword => name.includes(keyword));
+  }
+
+  /**
+   * Get customer ID for QuickBooks CustomerRef
+   * @private
+   */
+  private getCustomerId(order: SquareOrder, context?: MappingContext): string {
+    // Use Square customer ID if available, otherwise use default
+    if (order.customer_id) {
+      return order.customer_id;
+    }
+    return context?.options?.defaultCustomerId || '1';
+  }
+
+  /**
    * Generate customer name from Square order
    * @private
    */
@@ -344,8 +476,11 @@ export class DefaultMappingStrategy implements MappingStrategy {
     order: SquareOrder,
     _context?: MappingContext
   ): string {
-    // In the future, this could extract customer info from Square order
-    // For now, use a default with location information
+    // If we have a customer_id, use it in the name for identification
+    if (order.customer_id) {
+      return `Square Customer ${order.customer_id}`;
+    }
+    // Fallback to location-based naming
     const locationId = order.location_id;
     return `Square Customer (${locationId})`;
   }

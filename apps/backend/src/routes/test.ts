@@ -1,17 +1,18 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
 import { QueueService } from '../services/queueService';
+import logger from '../services/logger';
+import { getPrismaClient } from '../services/db';
+import config from '../config';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const router: any = express.Router();
 
 // Only enable test routes in development/test environments
 const isTestEnvironment =
-  process.env['NODE_ENV'] === 'test' ||
-  process.env['NODE_ENV'] === 'development';
+  config.NODE_ENV === 'test' || config.NODE_ENV === 'development';
 
 if (!isTestEnvironment) {
-  console.log('⚠️ Test routes disabled in production environment');
+  logger.warn('Test routes disabled in production environment');
 }
 
 /**
@@ -31,9 +32,9 @@ router.post(
     }
 
     try {
-      console.log('🧹 Clearing test data...');
+      logger.info('Clearing test data...');
 
-      const prisma = new PrismaClient();
+      const prisma = getPrismaClient();
       const queueService = new QueueService();
 
       // Clear database tables
@@ -45,9 +46,9 @@ router.post(
       const queue = queueService.getQueue();
       await queue.obliterate({ force: true });
 
-      await prisma.$disconnect();
+      // Note: We don't disconnect the singleton here as it may be used elsewhere
 
-      console.log('✅ Test data cleared successfully');
+      logger.info('Test data cleared successfully');
 
       res.status(200).json({
         status: 'success',
@@ -55,7 +56,7 @@ router.post(
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      console.error('❌ Error clearing test data:', error);
+      logger.error({ err: error }, 'Error clearing test data');
 
       res.status(500).json({
         error: 'Internal Server Error',
@@ -86,7 +87,7 @@ router.post(
       // Set environment variable to force failure
       process.env['FORCE_QB_FAILURE'] = 'true';
 
-      console.log('🔧 Forced failure mode enabled for next job');
+      logger.info('Forced failure mode enabled for next job');
 
       res.status(200).json({
         status: 'success',
@@ -94,7 +95,7 @@ router.post(
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      console.error('❌ Error enabling forced failure:', error);
+      logger.error({ err: error }, 'Error enabling forced failure');
 
       res.status(500).json({
         error: 'Internal Server Error',
@@ -124,7 +125,7 @@ router.post(
       // Remove environment variable
       delete process.env['FORCE_QB_FAILURE'];
 
-      console.log('🔧 Forced failure mode disabled');
+      logger.info('Forced failure mode disabled');
 
       res.status(200).json({
         status: 'success',
@@ -132,7 +133,7 @@ router.post(
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      console.error('❌ Error disabling forced failure:', error);
+      logger.error({ err: error }, 'Error disabling forced failure');
 
       res.status(500).json({
         error: 'Internal Server Error',

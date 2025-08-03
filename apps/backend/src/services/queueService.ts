@@ -1,5 +1,7 @@
 import { Queue } from 'bullmq';
 import { SquareWebhookPayload } from '../schemas/webhookSchema';
+import logger from './logger';
+import config from '../config';
 
 export class QueueService {
   private queue: Queue;
@@ -8,12 +10,12 @@ export class QueueService {
     // Initialize BullMQ queue with Redis connection
     this.queue = new Queue('order-processing', {
       connection: {
-        host: process.env['REDIS_HOST'] || 'localhost',
-        port: parseInt(process.env['REDIS_PORT'] || '6379'),
-        ...(process.env['REDIS_PASSWORD'] && {
-          password: process.env['REDIS_PASSWORD'],
+        host: config.REDIS_HOST,
+        port: config.REDIS_PORT,
+        ...(config.REDIS_PASSWORD && {
+          password: config.REDIS_PASSWORD,
         }),
-        db: parseInt(process.env['REDIS_DB'] || '0'),
+        db: config.REDIS_DB,
       },
       defaultJobOptions: {
         removeOnComplete: 10, // Keep last 10 completed jobs
@@ -26,7 +28,7 @@ export class QueueService {
       },
     });
 
-    console.log('📦 QueueService initialized with Redis connection');
+    logger.info('QueueService initialized with Redis connection');
   }
 
   /**
@@ -41,7 +43,10 @@ export class QueueService {
       delay: 0, // Process immediately
     });
 
-    console.log(`✅ Order job queued: ${job.id} for order ${payload.data.id}`);
+    logger.info(
+      { jobId: job.id, orderId: payload.data.id },
+      'Order job queued'
+    );
     return job.id as string;
   }
 
@@ -100,21 +105,21 @@ export class QueueService {
       const job = await this.queue.getJob(jobId);
 
       if (!job) {
-        console.error(`❌ Job ${jobId} not found`);
+        logger.error({ jobId }, 'Job not found');
         return false;
       }
 
       if (job.finishedOn && !job.failedReason) {
-        console.error(`❌ Job ${jobId} is not in failed state`);
+        logger.error({ jobId }, 'Job is not in failed state');
         return false;
       }
 
       // Retry the job
       await job.retry();
-      console.log(`🔄 Job ${jobId} retried successfully`);
+      logger.info({ jobId }, 'Job retried successfully');
       return true;
     } catch (error) {
-      console.error(`❌ Failed to retry job ${jobId}:`, error);
+      logger.error({ err: error, jobId }, 'Failed to retry job');
       return false;
     }
   }
@@ -131,6 +136,6 @@ export class QueueService {
    */
   async close(): Promise<void> {
     await this.queue.close();
-    console.log('📦 QueueService closed');
+    logger.info('QueueService closed');
   }
 }

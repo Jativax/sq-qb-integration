@@ -1,67 +1,162 @@
 import { Request, Response, NextFunction } from 'express';
-import { SecurityService } from '../services/securityService';
+import { User } from '@prisma/client';
+import authService from '../services/authService';
+import logger from '../services/logger';
 
 /**
- * Middleware to verify Square webhook signatures
- * This middleware validates that incoming webhooks are authentic by verifying the signature
+ * Extend Express Request interface to include user
  */
-export const verifySquareWebhook = (
+declare global {
+  namespace Express {
+    interface Request {
+      user?: User;
+    }
+  }
+}
+
+/**
+ * Authentication middleware that validates session tokens
+ * and attaches user information to the request
+ */
+export async function authMiddleware(
   req: Request,
   res: Response,
   next: NextFunction
-): void => {
+): Promise<void> {
   try {
-    console.log('🔐 Verifying Square webhook signature...');
+    // Extract token from Authorization header
+    const authHeader = req.headers.authorization;
 
-    // Instantiate the SecurityService
-    const securityService = new SecurityService();
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      logger.warn(
+        {
+          path: req.path,
+          method: req.method,
+          ip: req.ip,
+        },
+        'Authentication failed - missing or invalid Authorization header'
+      );
 
-    // Validate configuration first
-    if (!securityService.validateConfiguration()) {
-      console.error('❌ SecurityService configuration invalid');
-      res.status(500).json({
-        error: 'Internal Server Error',
-        message: 'Security service configuration error',
-        code: 'SECURITY_CONFIG_ERROR',
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Missing or invalid Authorization header',
+        code: 'MISSING_AUTH_HEADER',
       });
       return;
     }
 
-    // Check for test bypass (for E2E testing)
-    const testSignature = req.get('x-square-signature');
-    if (
-      process.env['NODE_ENV'] === 'test' &&
-      testSignature === 'VALID_TEST_SIGNATURE'
-    ) {
-      console.log('✅ Test signature bypass activated');
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+    // Validate session token
+    const { user } = await authService.validateSession(token);
+
+    // Attach user to request object
+    req.user = user;
+
+    logger.debug(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        path: req.path,
+        method: req.method,
+      },
+      'Authentication successful'
+    );
+
+    next();
+  } catch (error) {
+    logger.warn(
+      {
+        err: error,
+        path: req.path,
+        method: req.method,
+        ip: req.ip,
+      },
+      'Authentication failed'
+    );
+
+    // Determine appropriate error response
+    let statusCode = 401;
+    let message = 'Invalid or expired session token';
+    let code = 'INVALID_SESSION';
+
+    if (error instanceof Error) {
+      if (error.message.includes('expired')) {
+        code = 'SESSION_EXPIRED';
+        message = 'Session has expired, please login again';
+      } else if (error.message.includes('Invalid session token')) {
+        code = 'INVALID_TOKEN';
+        message = 'Invalid session token';
+      }
+    }
+
+    res.status(statusCode).json({
+      error: 'Unauthorized',
+      message,
+      code,
+    });
+  }
+}
+
+/**
+ * Optional authentication middleware that doesn't fail if no token is provided
+ * but validates the token if present
+ */
+export async function optionalAuthMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      // No token provided, continue without user
       next();
       return;
     }
 
-    // Validate the signature
-    const isValidSignature = securityService.validateSquareSignature(req);
+    const token = authHeader.substring(7);
 
-    if (!isValidSignature) {
-      console.warn('⚠️ Invalid Square webhook signature detected');
-      res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Invalid webhook signature',
-        code: 'INVALID_SIGNATURE',
-      });
-      return;
+    try {
+      const { user } = await authService.validateSession(token);
+      req.user = user;
+
+      logger.debug(
+        {
+          userId: user.id,
+          email: user.email,
+          role: user.role,
+          path: req.path,
+          method: req.method,
+        },
+        'Optional authentication successful'
+      );
+    } catch (error) {
+      // Token was provided but invalid, log warning but don't fail
+      logger.warn(
+        {
+          err: error,
+          path: req.path,
+          method: req.method,
+        },
+        'Optional authentication failed - continuing without user'
+      );
     }
 
-    console.log('✅ Square webhook signature validated successfully');
-
-    // If validation succeeds, proceed to the next middleware/route handler
     next();
   } catch (error) {
-    console.error('❌ Error in webhook signature verification:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'An error occurred during signature verification',
-      code: 'SIGNATURE_VERIFICATION_ERROR',
-    });
-    return;
+    logger.error(
+      {
+        err: error,
+        path: req.path,
+        method: req.method,
+      },
+      'Unexpected error in optional auth middleware'
+    );
+
+    // Don't fail on unexpected errors in optional middleware
+    next();
   }
-};
+}

@@ -291,5 +291,355 @@ describe('DefaultMappingStrategy', () => {
 
       expect(result.PaymentMethodRef?.name).toBe('Cash');
     });
+
+    it('should transform order with customer_id', async () => {
+      const order: SquareOrder = {
+        id: 'test-order-customer',
+        location_id: 'test-location',
+        customer_id: 'customer-123',
+        state: 'COMPLETED',
+        created_at: '2023-10-18T10:00:00.000Z',
+        updated_at: '2023-10-18T10:00:00.000Z',
+        total_money: {
+          amount: 1000,
+          currency: 'USD',
+        },
+      };
+
+      const result = await strategy.transform(order);
+
+      expect(result.CustomerRef).toMatchObject({
+        value: 'customer-123',
+        name: 'Square Customer customer-123',
+      });
+    });
+
+    it('should transform order with discounts', async () => {
+      const order: SquareOrder = {
+        id: 'test-order-discounts',
+        location_id: 'test-location',
+        state: 'COMPLETED',
+        created_at: '2023-10-18T10:00:00.000Z',
+        updated_at: '2023-10-18T10:00:00.000Z',
+        total_money: {
+          amount: 1800, // $18.00 (original $20 - $2 discount)
+          currency: 'USD',
+        },
+        line_items: [
+          {
+            uid: 'item-1',
+            name: 'Coffee',
+            quantity: '1',
+            base_price_money: {
+              amount: 2000, // $20.00
+              currency: 'USD',
+            },
+            total_money: {
+              amount: 2000,
+              currency: 'USD',
+            },
+          },
+        ],
+        discounts: [
+          {
+            uid: 'discount-1',
+            name: '10% Off',
+            type: 'FIXED_PERCENTAGE',
+            percentage: '10',
+            applied_money: {
+              amount: 200, // $2.00 discount
+              currency: 'USD',
+            },
+          },
+        ],
+      };
+
+      const result = await strategy.transform(order);
+
+      expect(result.Line).toHaveLength(2); // Item + discount
+      expect(result.Line[1]).toMatchObject({
+        Amount: -2.0, // Negative for discount
+        DetailType: 'SalesItemLineDetail',
+        SalesItemLineDetail: {
+          ItemRef: {
+            value: '1',
+            name: 'Discount - 10% Off',
+          },
+          UnitPrice: -2.0,
+          Qty: 1,
+        },
+      });
+    });
+
+    it('should transform order with service charges (tips)', async () => {
+      const order: SquareOrder = {
+        id: 'test-order-tips',
+        location_id: 'test-location',
+        state: 'COMPLETED',
+        created_at: '2023-10-18T10:00:00.000Z',
+        updated_at: '2023-10-18T10:00:00.000Z',
+        total_money: {
+          amount: 2300, // $23.00 ($20 + $3 tip)
+          currency: 'USD',
+        },
+        line_items: [
+          {
+            uid: 'item-1',
+            name: 'Coffee',
+            quantity: '1',
+            base_price_money: {
+              amount: 2000, // $20.00
+              currency: 'USD',
+            },
+            total_money: {
+              amount: 2000,
+              currency: 'USD',
+            },
+          },
+        ],
+        service_charges: [
+          {
+            uid: 'tip-1',
+            name: 'Tip',
+            type: 'AUTO_GRATUITY',
+            percentage: '15',
+            applied_money: {
+              amount: 300, // $3.00 tip
+              currency: 'USD',
+            },
+            taxable: false,
+          },
+        ],
+      };
+
+      const result = await strategy.transform(order);
+
+      expect(result.Line).toHaveLength(2); // Item + tip
+      expect(result.Line[1]).toMatchObject({
+        Amount: 3.0, // Positive for service charge
+        DetailType: 'SalesItemLineDetail',
+        SalesItemLineDetail: {
+          ItemRef: {
+            value: '1',
+            name: 'Tip',
+          },
+          UnitPrice: 3.0,
+          Qty: 1,
+        },
+      });
+    });
+
+    it('should transform order with custom surcharge', async () => {
+      const order: SquareOrder = {
+        id: 'test-order-surcharge',
+        location_id: 'test-location',
+        state: 'COMPLETED',
+        created_at: '2023-10-18T10:00:00.000Z',
+        updated_at: '2023-10-18T10:00:00.000Z',
+        total_money: {
+          amount: 2150, // $21.50 ($20 + $1.50 delivery fee)
+          currency: 'USD',
+        },
+        line_items: [
+          {
+            uid: 'item-1',
+            name: 'Coffee',
+            quantity: '1',
+            base_price_money: {
+              amount: 2000, // $20.00
+              currency: 'USD',
+            },
+            total_money: {
+              amount: 2000,
+              currency: 'USD',
+            },
+          },
+        ],
+        service_charges: [
+          {
+            uid: 'delivery-1',
+            name: 'Delivery Fee',
+            type: 'CUSTOM',
+            applied_money: {
+              amount: 150, // $1.50 delivery fee
+              currency: 'USD',
+            },
+            taxable: true,
+          },
+        ],
+      };
+
+      const result = await strategy.transform(order);
+
+      expect(result.Line).toHaveLength(2); // Item + delivery fee
+      expect(result.Line[1]).toMatchObject({
+        Amount: 1.5, // Positive for service charge
+        DetailType: 'SalesItemLineDetail',
+        SalesItemLineDetail: {
+          ItemRef: {
+            value: '1',
+            name: 'Service Charge - Delivery Fee',
+          },
+          UnitPrice: 1.5,
+          Qty: 1,
+        },
+      });
+    });
+
+    it('should transform complex order with customer, discounts, and service charges', async () => {
+      const order: SquareOrder = {
+        id: 'test-order-complex',
+        location_id: 'test-location',
+        customer_id: 'customer-456',
+        state: 'COMPLETED',
+        created_at: '2023-10-18T10:00:00.000Z',
+        updated_at: '2023-10-18T10:00:00.000Z',
+        total_money: {
+          amount: 2530, // $25.30 total after all adjustments
+          currency: 'USD',
+        },
+        line_items: [
+          {
+            uid: 'item-1',
+            name: 'Premium Coffee',
+            quantity: '2',
+            base_price_money: {
+              amount: 1200, // $12.00 each
+              currency: 'USD',
+            },
+            total_money: {
+              amount: 2400, // $24.00 total
+              currency: 'USD',
+            },
+          },
+        ],
+        discounts: [
+          {
+            uid: 'discount-1',
+            name: 'Loyalty Discount',
+            type: 'FIXED_AMOUNT',
+            applied_money: {
+              amount: 200, // $2.00 discount
+              currency: 'USD',
+            },
+          },
+        ],
+        service_charges: [
+          {
+            uid: 'tip-1',
+            name: 'Auto Gratuity',
+            type: 'AUTO_GRATUITY',
+            percentage: '18',
+            applied_money: {
+              amount: 330, // $3.30 tip
+              currency: 'USD',
+            },
+            taxable: false,
+          },
+        ],
+      };
+
+      const context: MappingContext = {
+        options: {
+          serviceChargeMapping: {
+            tipItemId: 'tip-item-id',
+            tipItemName: 'Gratuity',
+          },
+        },
+      };
+
+      const result = await strategy.transform(order, context);
+
+      expect(result.CustomerRef).toMatchObject({
+        value: 'customer-456',
+        name: 'Square Customer customer-456',
+      });
+
+      expect(result.Line).toHaveLength(3); // Item + discount + tip
+
+      // Check main item
+      expect(result.Line[0]).toMatchObject({
+        Amount: 24.0,
+        SalesItemLineDetail: {
+          ItemRef: {
+            name: 'Premium Coffee',
+          },
+          UnitPrice: 12.0,
+          Qty: 2,
+        },
+      });
+
+      // Check discount (negative)
+      expect(result.Line[1]).toMatchObject({
+        Amount: -2.0,
+        SalesItemLineDetail: {
+          ItemRef: {
+            name: 'Discount - Loyalty Discount',
+          },
+        },
+      });
+
+      // Check tip (positive, custom mapping)
+      expect(result.Line[2]).toMatchObject({
+        Amount: 3.3,
+        SalesItemLineDetail: {
+          ItemRef: {
+            value: 'tip-item-id',
+            name: 'Gratuity',
+          },
+        },
+      });
+    });
+
+    it('should handle zero-amount discounts and service charges', async () => {
+      const order: SquareOrder = {
+        id: 'test-order-zero-amounts',
+        location_id: 'test-location',
+        state: 'COMPLETED',
+        created_at: '2023-10-18T10:00:00.000Z',
+        updated_at: '2023-10-18T10:00:00.000Z',
+        total_money: {
+          amount: 1000,
+          currency: 'USD',
+        },
+        line_items: [
+          {
+            uid: 'item-1',
+            name: 'Coffee',
+            quantity: '1',
+            total_money: {
+              amount: 1000,
+              currency: 'USD',
+            },
+          },
+        ],
+        discounts: [
+          {
+            uid: 'discount-1',
+            name: 'Zero Discount',
+            applied_money: {
+              amount: 0, // Zero amount
+              currency: 'USD',
+            },
+          },
+        ],
+        service_charges: [
+          {
+            uid: 'service-1',
+            name: 'Zero Service Charge',
+            applied_money: {
+              amount: 0, // Zero amount
+              currency: 'USD',
+            },
+          },
+        ],
+      };
+
+      const result = await strategy.transform(order);
+
+      // Should only have the main item, zero-amount items should be filtered out
+      expect(result.Line).toHaveLength(1);
+      expect(result.Line[0]?.SalesItemLineDetail?.ItemRef?.name).toBe('Coffee');
+    });
   });
 });

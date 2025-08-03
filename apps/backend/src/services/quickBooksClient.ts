@@ -1,5 +1,7 @@
 import fetch from 'node-fetch';
 import { metricsService } from './metricsService';
+import logger from './logger';
+import config from '../config';
 
 // QuickBooks API Type Definitions
 export interface QBCustomerRef {
@@ -129,9 +131,9 @@ export class QuickBooksClient {
     const startTime = Date.now();
 
     // Check for forced failure (for testing purposes)
-    if (process.env['FORCE_QB_FAILURE'] === 'true') {
-      console.log(
-        '🔧 Forced failure mode enabled - simulating QuickBooks API error'
+    if (config.FORCE_QB_FAILURE === 'true') {
+      logger.info(
+        'Forced failure mode enabled - simulating QuickBooks API error'
       );
       // Disable forced failure after first use
       delete process.env['FORCE_QB_FAILURE'];

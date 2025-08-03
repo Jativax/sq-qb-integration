@@ -7,6 +7,9 @@ import type {
   WebhookEvent,
   FailedJob,
   RetryJobResponse,
+  AuditLog,
+  AuditLogStats,
+  AnalyticsMetrics,
 } from '../services/api';
 
 // Query keys for consistent caching
@@ -17,6 +20,10 @@ export const queryKeys = {
   queueStats: ['queueStats'],
   recentWebhooks: ['recentWebhooks'],
   failedJobs: ['failedJobs'],
+  auditLogs: ['auditLogs'],
+  auditLogActions: ['auditLogActions'],
+  auditLogStats: ['auditLogStats'],
+  analyticsMetrics: ['analyticsMetrics'],
 } as const;
 
 // Health check hook
@@ -99,6 +106,52 @@ export function useRetryJob(): UseMutationResult<
       queryClient.invalidateQueries({ queryKey: queryKeys.failedJobs });
       // Also invalidate queue stats to update the count
       queryClient.invalidateQueries({ queryKey: queryKeys.queueStats });
+      // Also invalidate audit logs since a new audit entry was created
+      queryClient.invalidateQueries({ queryKey: queryKeys.auditLogs });
+      queryClient.invalidateQueries({ queryKey: queryKeys.auditLogStats });
     },
+  });
+}
+
+// Audit logs hook with optional filtering
+export function useAuditLogs(params?: {
+  limit?: number;
+  action?: string;
+  userId?: string;
+}): UseQueryResult<AuditLog[]> {
+  return useQuery({
+    queryKey: [...queryKeys.auditLogs, params],
+    queryFn: () => apiClient.getAuditLogs(params),
+    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 20000,
+  });
+}
+
+// Audit log actions hook for filter dropdown
+export function useAuditLogActions(): UseQueryResult<string[]> {
+  return useQuery({
+    queryKey: queryKeys.auditLogActions,
+    queryFn: () => apiClient.getAuditLogActions(),
+    staleTime: 300000, // Consider data fresh for 5 minutes (actions don't change often)
+  });
+}
+
+// Audit log statistics hook
+export function useAuditLogStats(): UseQueryResult<AuditLogStats> {
+  return useQuery({
+    queryKey: queryKeys.auditLogStats,
+    queryFn: () => apiClient.getAuditLogStats(),
+    refetchInterval: 60000, // Refetch every minute
+    staleTime: 30000,
+  });
+}
+
+// Analytics metrics hook
+export function useAnalyticsMetrics() {
+  return useQuery({
+    queryKey: queryKeys.analyticsMetrics,
+    queryFn: () => apiClient.getAnalyticsMetrics(),
+    staleTime: 15 * 1000, // 15 seconds - refresh more frequently for live metrics
+    refetchInterval: 30 * 1000, // Auto-refetch every 30 seconds
   });
 }

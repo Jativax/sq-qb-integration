@@ -53,3 +53,51 @@ model SyncJob {
 
   @@map("sync_jobs")
 }
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+  action    String   // e.g., "ORDER_PROCESSED", "JOB_FAILED", "JOB_RETRIED"
+  userId    String?  // nullable, for user-initiated actions
+  details   Json     // relevant context like orderId, jobId, error messages
+  createdAt DateTime @default(now())
+
+  // Optional relationship to User for user-initiated actions
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+enum UserRole {
+  ADMIN
+  VIEWER
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String   // hashed with bcrypt
+  role      UserRole @default(VIEWER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  sessions  Session[]
+  auditLogs AuditLog[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Required relationship to User
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}

@@ -1,5 +1,7 @@
 import { Request } from 'express';
 import crypto from 'crypto';
+import logger from './logger';
+import config from '../config';
 
 export class SecurityService {
   /**
@@ -12,14 +14,14 @@ export class SecurityService {
       // Step 1: Retrieve the signature from the x-square-signature header
       const providedSignature = request.get('x-square-signature');
       if (!providedSignature) {
-        console.warn('⚠️ Missing x-square-signature header');
+        logger.warn('Missing x-square-signature header');
         return false;
       }
 
       // Step 2: Get the webhook signature key from environment
-      const signatureKey = process.env['SQUARE_WEBHOOK_SIGNATURE_KEY'];
+      const signatureKey = config.SQUARE_WEBHOOK_SIGNATURE_KEY;
       if (!signatureKey) {
-        console.error('❌ SQUARE_WEBHOOK_SIGNATURE_KEY not configured');
+        logger.error('SQUARE_WEBHOOK_SIGNATURE_KEY not configured');
         return false;
       }
 
@@ -31,9 +33,7 @@ export class SecurityService {
       // The raw body should be attached to the request object by the express.json verify function
       const rawBody = (request as Request & { rawBody?: Buffer }).rawBody;
       if (!rawBody) {
-        console.error(
-          '❌ Raw request body not available for signature validation'
-        );
+        logger.error('Raw request body not available for signature validation');
         return false;
       }
 
@@ -54,19 +54,22 @@ export class SecurityService {
       );
 
       if (isValid) {
-        console.log('✅ Square webhook signature validation successful');
+        logger.info('Square webhook signature validation successful');
       } else {
-        console.warn('⚠️ Square webhook signature validation failed', {
-          providedSignature: providedSignature.substring(0, 10) + '...',
-          generatedSignature: generatedSignature.substring(0, 10) + '...',
-          requestUrl,
-          bodyLength: rawBody.length,
-        });
+        logger.warn(
+          {
+            providedSignature: providedSignature.substring(0, 10) + '...',
+            generatedSignature: generatedSignature.substring(0, 10) + '...',
+            requestUrl,
+            bodyLength: rawBody.length,
+          },
+          'Square webhook signature validation failed'
+        );
       }
 
       return isValid;
     } catch (error) {
-      console.error('❌ Error during signature validation:', error);
+      logger.error({ err: error }, 'Error during signature validation');
       return false;
     }
   }
@@ -78,13 +81,13 @@ export class SecurityService {
   validateConfiguration(): boolean {
     const requiredEnvVars = ['SQUARE_WEBHOOK_SIGNATURE_KEY'];
     const missingVars = requiredEnvVars.filter(
-      varName => !process.env[varName]
+      varName => !config[varName as keyof typeof config]
     );
 
     if (missingVars.length > 0) {
-      console.error(
-        '❌ Missing required environment variables for SecurityService:',
-        missingVars
+      logger.error(
+        { missingVars },
+        'Missing required environment variables for SecurityService'
       );
       return false;
     }

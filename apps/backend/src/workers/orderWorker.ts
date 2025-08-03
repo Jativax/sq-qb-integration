@@ -1,29 +1,29 @@
 import { Worker, Job, Queue } from 'bullmq';
-import { PrismaClient } from '@prisma/client';
 import { SquareApiClient } from '../services/squareClient';
 import { QuickBooksClient } from '../services/quickBooksClient';
 import { OrderProcessor } from '../services/orderProcessor';
 import { MappingEngine } from '../services/mapping';
 import { SquareWebhookPayload } from '../schemas/webhookSchema';
 import { metricsService } from '../services/metricsService';
+import logger from '../services/logger';
+import { getPrismaClient, disconnectPrisma } from '../services/db';
+import config from '../config';
+import auditService from '../services/auditService';
 
 class OrderWorkerService {
   private worker: Worker;
   private queue: Queue;
-  private prismaClient: PrismaClient;
+  private prismaClient = getPrismaClient();
   private jobStartTimes: Map<string, number> = new Map();
 
   constructor() {
-    // Initialize Prisma client
-    this.prismaClient = new PrismaClient();
-
     const connectionConfig = {
-      host: process.env['REDIS_HOST'] || 'localhost',
-      port: parseInt(process.env['REDIS_PORT'] || '6379'),
-      ...(process.env['REDIS_PASSWORD'] && {
-        password: process.env['REDIS_PASSWORD'],
+      host: config.REDIS_HOST,
+      port: config.REDIS_PORT,
+      ...(config.REDIS_PASSWORD && {
+        password: config.REDIS_PASSWORD,
       }),
-      db: parseInt(process.env['REDIS_DB'] || '0'),
+      db: config.REDIS_DB,
     };
 
     // Initialize BullMQ queue for metrics monitoring
@@ -37,7 +37,7 @@ class OrderWorkerService {
       this.processOrderJob.bind(this),
       {
         connection: connectionConfig,
-        concurrency: parseInt(process.env['WORKER_CONCURRENCY'] || '5'), // Process up to 5 jobs concurrently
+        concurrency: config.WORKER_CONCURRENCY, // Process up to 5 jobs concurrently
         limiter: {
           max: 10, // Maximum 10 jobs per duration
           duration: 60000, // 1 minute
@@ -47,7 +47,7 @@ class OrderWorkerService {
 
     this.setupEventHandlers();
     this.startQueueMonitoring();
-    console.log('🔄 OrderWorker started and listening for jobs');
+    logger.info('OrderWorker started and listening for jobs');
   }
 
   /**
@@ -62,8 +62,9 @@ class OrderWorkerService {
       this.jobStartTimes.set(job.id, jobStartTime);
     }
 
-    console.log(
-      `🔄 Processing job ${job.id} for order ${webhookPayload.data.id}`
+    logger.info(
+      { jobId: job.id, orderId: webhookPayload.data.id },
+      'Processing job'
     );
 
     // Record job as active
@@ -79,21 +80,17 @@ class OrderWorkerService {
 
       // Initialize API clients with environment-based configuration
       const squareApiClient = new SquareApiClient({
-        accessToken: process.env['SQUARE_ACCESS_TOKEN'] || 'test-square-token',
-        applicationId: process.env['SQUARE_APPLICATION_ID'] || 'test-app-id',
-        environment:
-          (process.env['SQUARE_ENVIRONMENT'] as 'sandbox' | 'production') ||
-          'sandbox',
+        accessToken: config.SQUARE_ACCESS_TOKEN,
+        applicationId: config.SQUARE_APPLICATION_ID,
+        environment: config.SQUARE_ENVIRONMENT,
       });
 
       await job.updateProgress(20);
 
       const quickBooksClient = new QuickBooksClient({
-        accessToken: process.env['QB_ACCESS_TOKEN'] || 'test-qb-token',
-        realmId: process.env['QB_REALM_ID'] || 'test-realm-123',
-        environment:
-          (process.env['QB_ENVIRONMENT'] as 'sandbox' | 'production') ||
-          'sandbox',
+        accessToken: config.QB_ACCESS_TOKEN,
+        realmId: config.QB_REALM_ID,
+        environment: config.QB_ENVIRONMENT,
       });
 
       await job.updateProgress(30);
@@ -103,7 +100,6 @@ class OrderWorkerService {
 
       // Create OrderProcessor with initialized clients and mapping engine
       const orderProcessor = new OrderProcessor(
-        this.prismaClient,
         squareApiClient,
         quickBooksClient,
         mappingEngine
@@ -116,19 +112,21 @@ class OrderWorkerService {
 
       await job.updateProgress(100);
 
-      console.log(
-        `✅ Successfully processed job ${job.id} for order ${webhookPayload.data.id}`
+      logger.info(
+        { jobId: job.id, orderId: webhookPayload.data.id },
+        'Successfully processed job'
       );
     } catch (error) {
-      console.error(`❌ Failed to process job ${job.id}:`, error);
-
-      // Log additional context for debugging
-      console.error('Job details:', {
-        jobId: job.id,
-        orderId: webhookPayload.data.id,
-        attempt: job.attemptsMade,
-        maxAttempts: job.opts.attempts,
-      });
+      logger.error(
+        {
+          err: error,
+          jobId: job.id,
+          orderId: webhookPayload.data.id,
+          attempt: job.attemptsMade,
+          maxAttempts: job.opts.attempts,
+        },
+        'Failed to process job'
+      );
 
       // Re-throw error to trigger BullMQ retry mechanism
       throw error;
@@ -140,7 +138,7 @@ class OrderWorkerService {
    */
   private setupEventHandlers(): void {
     this.worker.on('completed', job => {
-      console.log(`✅ Job ${job.id} completed successfully`);
+      logger.info({ jobId: job.id }, 'Job completed successfully');
 
       // Calculate job duration and record metrics
       if (job.id) {
@@ -159,12 +157,24 @@ class OrderWorkerService {
         // Record order processing success
         const strategy = 'default'; // Could be extracted from job data if needed
         metricsService.recordOrderProcessed('success', strategy);
+
+        // Log audit event for successful order processing
+        const webhookPayload = job.data as SquareWebhookPayload;
+        auditService.logEvent({
+          action: 'ORDER_PROCESSED',
+          details: {
+            jobId: job.id,
+            orderId: webhookPayload.data.id,
+            duration: startTime ? (Date.now() - startTime) / 1000 : undefined,
+            strategy,
+          },
+        });
       }
     });
 
     this.worker.on('failed', (job, err) => {
       if (job) {
-        console.error(`❌ Job ${job.id} failed:`, err.message);
+        logger.error({ jobId: job.id, err: err.message }, 'Job failed');
 
         // Calculate job duration and record metrics
         if (job.id) {
@@ -187,25 +197,40 @@ class OrderWorkerService {
 
         // Log if this was the final attempt
         if (job.attemptsMade >= (job.opts.attempts || 1)) {
-          console.error(`💀 Job ${job.id} exhausted all retry attempts`);
+          logger.error({ jobId: job.id }, 'Job exhausted all retry attempts');
+
+          // Log audit event for permanently failed job
+          const webhookPayload = job.data as SquareWebhookPayload;
+          auditService.logEvent({
+            action: 'JOB_PERMANENTLY_FAILED',
+            details: {
+              jobId: job.id,
+              orderId: webhookPayload.data.id,
+              error: err.message,
+              stack: err.stack,
+              attempts: job.attemptsMade,
+              maxAttempts: job.opts.attempts,
+            },
+          });
+
           // Here you could send alerts, write to dead letter queue, etc.
         }
       }
     });
 
     this.worker.on('progress', (job, progress) => {
-      console.log(`📊 Job ${job.id} progress: ${progress}%`);
+      logger.debug({ jobId: job.id, progress }, 'Job progress update');
     });
 
     this.worker.on('stalled', jobId => {
-      console.warn(`⚠️ Job ${jobId} stalled`);
+      logger.warn({ jobId }, 'Job stalled');
     });
 
     this.worker.on('error', err => {
-      console.error('❌ Worker error:', err);
+      logger.error({ err }, 'Worker error');
     });
 
-    console.log('📋 OrderWorker event handlers configured');
+    logger.info('OrderWorker event handlers configured');
   }
 
   /**
@@ -225,24 +250,24 @@ class OrderWorkerService {
           queueCounts['failed'] || 0
         );
       } catch (error) {
-        console.error('❌ Error updating queue metrics:', error);
+        logger.error({ err: error }, 'Error updating queue metrics');
       }
     }, 15000); // 15 seconds interval
 
-    console.log('📊 Queue depth monitoring started (15s interval)');
+    logger.info('Queue depth monitoring started (15s interval)');
   }
 
   /**
    * Graceful shutdown of the worker
    */
   async close(): Promise<void> {
-    console.log('🛑 Shutting down OrderWorker...');
+    logger.info('Shutting down OrderWorker...');
 
     await this.worker.close();
     await this.queue.close();
-    await this.prismaClient.$disconnect();
+    await disconnectPrisma();
 
-    console.log('✅ OrderWorker shutdown complete');
+    logger.info('OrderWorker shutdown complete');
   }
 }
 
@@ -251,13 +276,13 @@ const orderWorker = new OrderWorkerService();
 
 // Handle graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('🛑 SIGTERM received, shutting down OrderWorker gracefully...');
+  logger.info('SIGTERM received, shutting down OrderWorker gracefully...');
   await orderWorker.close();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  console.log('🛑 SIGINT received, shutting down OrderWorker gracefully...');
+  logger.info('SIGINT received, shutting down OrderWorker gracefully...');
   await orderWorker.close();
   process.exit(0);
 });

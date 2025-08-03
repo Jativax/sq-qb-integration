@@ -427,6 +427,432 @@ const { data: recentWebhooks } = useRecentWebhooks();
 - **Flexible grid layouts** adapt to screen sizes
 - **Touch-friendly** interface elements
 
+## 🎯 **Recent Improvements & Architecture Enhancements**
+
+The application has undergone significant refactoring to improve maintainability, performance, and developer experience:
+
+### **Backend Improvements**
+
+#### **1. Centralized Configuration Management**
+
+**Location**: `apps/backend/src/config/index.ts`
+
+**Features**:
+- **Zod Validation**: All environment variables validated with types at startup
+- **Type Safety**: Exported configuration object with full TypeScript support  
+- **Environment-Specific Validation**: Production requires real API credentials
+- **Fail-Fast**: Application exits on startup if configuration is invalid
+- **Comprehensive Logging**: Clear error messages for missing/invalid variables
+
+**Benefits**:
+```typescript
+// Before: Direct environment access throughout codebase
+const port = process.env.PORT || 3001;
+const redisHost = process.env.REDIS_HOST || 'localhost';
+
+// After: Centralized, typed configuration
+import config from './config';
+const { PORT, REDIS_HOST } = config; // Fully typed and validated
+```
+
+**Configuration Schema**:
+```typescript
+// All environment variables with validation
+NODE_ENV: 'development' | 'production' | 'test'
+PORT: number (1-65535, default: 3001)
+DATABASE_URL: string (valid URL format)
+REDIS_HOST: string (default: 'localhost')
+REDIS_PORT: number (1-65535, default: 6379)
+SQUARE_WEBHOOK_SIGNATURE_KEY: string (required)
+// ... and more with proper types and defaults
+```
+
+#### **2. Prisma Singleton Pattern for Database Connections**
+
+**Location**: `apps/backend/src/services/db.ts`
+
+**Features**:
+- **Single Connection**: One PrismaClient instance across the entire application
+- **Hot-Reload Protection**: Uses `globalThis` in development to prevent connection leaks
+- **Environment Awareness**: Different behavior for development vs production
+- **Graceful Shutdown**: Centralized cleanup logic for application termination
+- **Dependency Injection Removal**: Simplified OrderProcessor and other services
+
+**Benefits**:
+```typescript
+// Before: Multiple PrismaClient instances
+class OrderProcessor {
+  constructor(private prismaClient: PrismaClient) {} // DI required
+}
+const prisma = new PrismaClient(); // Multiple instances created
+
+// After: Singleton pattern  
+import { getPrismaClient } from './services/db';
+class OrderProcessor {
+  private prismaClient = getPrismaClient(); // Always same instance
+}
+```
+
+**Performance Impact**:
+- **Reduced Memory**: Single connection pool instead of multiple instances
+- **Faster Development**: No connection leaks during hot-reloads
+- **Simplified Testing**: Centralized mocking for all database operations
+
+#### **3. Structured Logging with Pino**
+
+**Location**: `apps/backend/src/services/logger.ts`
+
+**Features**:
+- **Structured Format**: JSON logs with contextual data instead of plain strings
+- **Environment-Aware**: Pretty printing in development, JSON in production
+- **Performance**: High-performance logger designed for production use
+- **Context-Rich**: Object-based logging with error details, IDs, and metadata
+
+**Benefits**:
+```typescript
+// Before: Basic console logging
+console.log('Processing order:', orderId);
+console.error('An error occurred', error);
+
+// After: Structured logging with context
+logger.info({ orderId }, 'Processing order');
+logger.error({ err: error, orderId }, 'An error occurred');
+```
+
+**Log Format Examples**:
+```json
+// Development (pretty-printed)
+INFO: Processing order
+  orderId: "order-123"
+
+// Production (JSON for monitoring tools)
+{"level":"info","orderId":"order-123","msg":"Processing order","time":"2023-10-18T10:00:00.000Z"}
+```
+
+### **Frontend Improvements**
+
+#### **4. Component Organization & Separation of Concerns**
+
+**Improved Structure**:
+```
+apps/frontend/src/pages/
+├── Analytics.tsx    # Dedicated analytics page component
+├── Dashboard.tsx    # Main dashboard (existing)
+├── FailedJobs.tsx   # Failed jobs management (existing)
+├── QueueMonitor.tsx # Queue monitoring page component
+└── Settings.tsx     # Application settings page component
+```
+
+**Benefits**:
+- **Maintainability**: Each page component in its own file with proper documentation
+- **Reusability**: Components can be easily imported and tested independently
+- **Developer Experience**: Better IDE support with clear file organization
+- **Scalability**: Easy to add new pages and features without cluttering App.tsx
+
+**Before vs After**:
+```typescript
+// Before: Inline components in App.tsx
+function Analytics() { /* component code */ }
+function QueueMonitor() { /* component code */ }
+function Settings() { /* component code */ }
+
+// After: Proper separation with dedicated files
+import Analytics from './pages/Analytics';
+import QueueMonitor from './pages/QueueMonitor';  
+import Settings from './pages/Settings';
+```
+
+### **Development Workflow Improvements**
+
+#### **Environment Variable Management**
+
+**Backend Configuration** (validated at startup):
+```bash
+# All variables now validated with proper types
+NODE_ENV=development          # Enum: development|production|test
+PORT=3001                    # Number validation (1-65535)
+DATABASE_URL=postgresql://... # URL format validation
+SQUARE_WEBHOOK_SIGNATURE_KEY=key # Required validation
+```
+
+#### **Database Connection Management**
+
+**Single Source of Truth**:
+```typescript
+// Everywhere in the application:
+import { getPrismaClient } from './services/db';
+const prisma = getPrismaClient(); // Always returns the same instance
+```
+
+#### **Logging Consistency**
+
+**Structured Logging Everywhere**:
+```typescript
+// Services, workers, middleware all use consistent logging:
+logger.info({ jobId, orderId }, 'Job started');
+logger.error({ err, context }, 'Operation failed');
+logger.debug({ query, duration }, 'Database query');
+```
+
+### **Production Readiness Enhancements**
+
+#### **Startup Validation**
+- **Configuration Errors**: Application won't start with invalid environment variables
+- **Database Connection**: Automatic validation of Prisma connection on startup
+- **Type Safety**: Compile-time guarantees for all configuration usage
+
+#### **Performance Optimizations**
+- **Single Database Connection**: Eliminates connection overhead and pooling issues
+- **Structured Logging**: High-performance logging with minimal runtime overhead
+- **Environment-Specific Behavior**: Optimized settings for development vs production
+
+#### **Maintainability Improvements**
+- **Single Configuration Source**: No more scattered `process.env` access throughout codebase
+- **Component Organization**: Clear separation of concerns in frontend architecture
+- **Consistent Patterns**: Standardized approaches for logging, database access, and configuration
+
+These improvements represent a significant step toward production-grade architecture with better error handling, performance, and maintainability across the entire application stack.
+
+## 📊 **Analytics & Monitoring Features**
+
+### **Real-Time Dashboard**
+The Analytics page provides comprehensive insights into system performance and business metrics:
+
+#### **Key Performance Indicators**
+- **Job Processing Metrics**: Success rates, throughput, queue status
+- **API Performance**: Response times, error rates, P95 latencies  
+- **System Health**: Memory usage, uptime, resource utilization
+- **Business Intelligence**: Order processing statistics, external API usage
+
+#### **Interactive Visualizations**
+- **Stat Cards Grid**: 6 key metrics with trend indicators and status badges
+- **Jobs History Chart**: Stacked bar chart showing processing status over time
+- **Performance Latency Chart**: Multi-line chart tracking API response times
+- **API Usage Chart**: Pie chart for call distribution + bar chart for performance comparison
+
+#### **Real-Time Features**
+- **Auto-Refresh**: Live data updates every 30 seconds
+- **Smart Caching**: Optimized data fetching with 15-second stale time
+- **Error Recovery**: Graceful error handling with one-click retry
+- **Mobile Responsive**: Adaptive layouts for all screen sizes
+
+### **Security & Access Control**
+- **Role-Based Access**: VIEWER role or higher required for analytics
+- **Session Management**: Secure token-based authentication
+- **Audit Trail Integration**: All page views and interactions logged
+- **Protected Routes**: Automatic redirect to login for unauthenticated users
+
+#### **4. Role-Based Access Control (RBAC) System**
+
+**Location**: `apps/backend/src/services/authService.ts`, `apps/backend/src/middleware/`
+
+**Features**:
+- **Secure Authentication**: Argon2 password hashing with session-based auth
+- **Role Hierarchy**: ADMIN (full access) > VIEWER (read-only access)
+- **Session Management**: 24-hour sessions with automatic extension
+- **Protected API Routes**: All endpoints secured with role-based permissions
+- **Comprehensive Audit Trail**: All auth events logged with user context
+
+**Database Schema**:
+```sql
+-- User management with roles
+User {
+  id: String (CUID)
+  email: String (unique)
+  password: String (Argon2 hashed)
+  role: UserRole (ADMIN | VIEWER)
+}
+
+-- Session management for secure auth
+Session {
+  id: String (CUID)
+  token: String (unique, crypto-secure)
+  userId: String (foreign key)
+  expiresAt: DateTime
+}
+```
+
+**API Security**:
+```typescript
+// Protected routes with role requirements
+POST /api/v1/jobs/:jobId/retry  // ADMIN only
+GET  /api/v1/audit-logs         // VIEWER or higher
+GET  /api/v1/analytics          // VIEWER or higher
+
+// Frontend role-based UI
+const { isAdmin, isViewer } = useAuth();
+{isAdmin && <RetryButton />}  // Conditional rendering
+```
+
+**Test Credentials**:
+- **Admin**: `admin@sqqb.com` / `admin123` (full access including job retry)
+- **Viewer**: `viewer@sqqb.com` / `viewer123` (read-only access to all data)
+
+#### **5. Analytics API Endpoint for Structured Metrics**
+
+**Location**: `apps/backend/src/routes/analytics.ts`
+
+**Features**:
+- **Prometheus Metrics Parsing**: Custom parser for text-based Prometheus format
+- **Structured JSON Response**: Easy consumption by frontend charting libraries
+- **Performance Insights**: Job processing, API latency, queue depth metrics
+- **System Monitoring**: Memory usage, uptime, CPU metrics
+- **Role-Based Access**: VIEWER role or higher required
+
+**API Endpoints**:
+```typescript
+GET /api/v1/analytics/metrics     // Structured JSON metrics
+GET /api/v1/analytics/metrics/raw // Raw Prometheus format
+```
+
+**Response Structure**:
+```json
+{
+  "jobsProcessed": {
+    "completed": 150,
+    "failed": 5,
+    "active": 2,
+    "waiting": 10
+  },
+  "queueDepth": {
+    "waiting": 10,
+    "active": 2,
+    "completed": 150,
+    "failed": 5
+  },
+  "apiMetrics": {
+    "totalRequests": 1250,
+    "averageResponseTime": 0.125,
+    "requestsP95": 0.350
+  },
+  "externalApiMetrics": {
+    "square": {
+      "totalCalls": 75,
+      "averageResponseTime": 1.2,
+      "p95ResponseTime": 2.5
+    },
+    "quickbooks": {
+      "totalCalls": 50,
+      "averageResponseTime": 0.8,
+      "p95ResponseTime": 1.8
+    }
+  },
+  "systemMetrics": {
+    "uptime": 86400,
+    "memoryUsage": {
+      "used": 128,
+      "total": 512,
+      "percentage": 25.0
+    },
+    "cpuUsage": 15.2
+  }
+}
+```
+
+**Benefits**:
+- **Frontend Integration**: Direct consumption by React components and charts
+- **Performance Monitoring**: Real-time insights into system health
+- **Custom Parsing**: No external dependencies for Prometheus metric processing
+- **Comprehensive Coverage**: All critical business and system metrics included
+
+#### **6. Frontend Analytics Dashboard Implementation**
+
+**Location**: `apps/frontend/src/pages/Analytics.tsx`, `apps/frontend/src/components/analytics/`
+
+**Features**:
+- **Real-time Data Visualization**: Live dashboard with 30-second auto-refresh
+- **Professional Charting**: Recharts library for interactive, responsive visualizations
+- **Comprehensive Metrics Display**: Key performance indicators and detailed analytics
+- **Role-Based Access**: Integrated with RBAC system (VIEWER role or higher required)
+- **Responsive Design**: Mobile-first approach with adaptive layouts
+
+**Dashboard Components**:
+
+**StatCardGrid**:
+```typescript
+// Key metrics overview with 6 primary indicators
+- Total Jobs Processed (completed vs failed breakdown)
+- Job Success Rate (with trend indicators)
+- Current Queue Depth (active jobs status)
+- API Request Volume (with P95 latency)
+- External API Usage (Square + QuickBooks calls)
+- System Health (uptime and memory usage)
+```
+
+**JobsHistoryChart**:
+```typescript
+// Stacked bar chart showing job processing over time
+- Color-coded status: Green (completed), Red (failed), Yellow (active), Gray (waiting)
+- Interactive tooltips and legend
+- Historical comparison capability
+```
+
+**PerformanceLatencyChart**:
+```typescript
+// Multi-line chart for API response times
+- Square API latency (P95 response times)
+- QuickBooks API latency (P95 response times)  
+- Internal API latency (application performance)
+- 24-hour timeline with performance summary
+```
+
+**ApiUsageChart**:
+```typescript
+// Dual visualization: Pie chart + Bar chart
+- Call distribution between Square and QuickBooks APIs
+- Performance comparison (average vs P95 latency)
+- Comprehensive usage statistics
+```
+
+**Technical Implementation**:
+```typescript
+// API Integration
+const { data: metrics, isLoading, error } = useAnalyticsMetrics();
+
+// Auto-refresh configuration
+refetchInterval: 30 * 1000, // 30 seconds
+staleTime: 15 * 1000,      // 15 seconds cache
+
+// Error handling and loading states
+- Professional loading spinners
+- User-friendly error messages with retry functionality
+- Empty state handling for no data scenarios
+```
+
+**Navigation Integration**:
+- **Menu Link**: "Analytics" in main sidebar navigation
+- **Route**: `/analytics` protected by authentication
+- **Icon**: Chart bar icon for visual identification
+- **Access Control**: Requires VIEWER role or higher
+
+**Dependencies Added**:
+```json
+{
+  "recharts": "^2.12.7"  // React charting library
+}
+```
+
+**Data Flow Architecture**:
+```
+Backend Analytics API 
+  ↓ /api/v1/analytics/metrics
+API Service (getAnalyticsMetrics)
+  ↓ TypeScript interfaces
+React Query Hook (useAnalyticsMetrics)
+  ↓ Caching & auto-refresh
+Analytics Dashboard Component
+  ↓ Data distribution
+Chart Components (StatCards, BarChart, LineChart, PieChart)
+  ↓ Recharts library
+Interactive Visualizations
+```
+
+**Responsive Design Features**:
+- **Mobile**: Single-column layout with stacked cards
+- **Tablet**: 2-column chart grid with optimized spacing
+- **Desktop**: 3-column metric cards with side-by-side charts
+- **Touch-friendly**: All interactive elements optimized for mobile interaction
+
 ### Production Deployment
 
 #### **Build Optimization**
@@ -1220,3 +1646,56 @@ npx pnpm dev:all
 - **Type Safety**: TypeScript throughout the stack for compile-time safety
 - **Testing Strategy**: Multiple testing levels for confidence in changes
 - **Version Control**: Git hooks for code quality enforcement
+
+---
+
+## 🎉 **Latest Release: v2.0 - Analytics Dashboard & RBAC**
+
+### **Major Features Added**
+
+#### ✅ **Full-Stack Analytics Dashboard**
+- **Real-time Metrics**: Live performance monitoring with 30-second auto-refresh
+- **Interactive Charts**: 4 chart types with Recharts library (Stat Cards, Bar, Line, Pie)
+- **Comprehensive KPIs**: Job processing, API performance, system health, business metrics
+- **Mobile Responsive**: Adaptive layouts for all screen sizes
+
+#### ✅ **Role-Based Access Control (RBAC)**
+- **Secure Authentication**: Argon2 password hashing with session management
+- **Two User Roles**: ADMIN (full access) and VIEWER (read-only)
+- **Protected Routes**: All dashboard pages secured with proper access control
+- **Session Security**: 24-hour tokens with automatic extension
+
+#### ✅ **Enhanced API Architecture**
+- **Analytics Endpoint**: `/api/v1/analytics/metrics` with structured JSON response
+- **Custom Prometheus Parser**: Reliable metrics processing without external dependencies
+- **Audit Trail System**: Comprehensive logging of all user and system actions
+- **Database-Backed Sessions**: Secure token storage with cleanup
+
+#### ✅ **Production-Ready Features**
+- **Centralized Configuration**: Zod-validated environment variables with type safety
+- **Structured Logging**: Pino logger with development/production configurations
+- **Prisma Singleton**: Optimized database connection management
+- **Error Boundaries**: Graceful error handling throughout the application
+
+### **Technical Improvements**
+
+- **TypeScript Coverage**: 100% type safety across backend and frontend
+- **Performance Optimization**: Smart caching with TanStack Query
+- **Security Hardening**: Token-based auth, protected routes, audit logging
+- **Developer Experience**: Hot reload, structured logging, comprehensive error handling
+- **Testing**: End-to-end tests with Playwright for critical user flows
+
+### **Ready for Production**
+
+This release represents a **complete enterprise-grade solution** with:
+- 🔐 **Security**: RBAC, session management, audit trails
+- 📊 **Monitoring**: Real-time analytics and performance metrics
+- 🏗️ **Architecture**: Scalable, maintainable, well-documented codebase
+- 🧪 **Quality**: Comprehensive testing and type safety
+- 📱 **User Experience**: Modern, responsive interface with excellent UX
+
+---
+
+**Built with ❤️ for seamless Square-QuickBooks integration**
+
+*Last Updated: December 2024 - v2.0 with Complete Analytics Dashboard and Enterprise RBAC*

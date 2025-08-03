@@ -1,3 +1,10 @@
+/**
+ * Settings Page Component
+ *
+ * This component provides application settings and configuration
+ * options for the Square-QuickBooks integration.
+ */
+
 export function Settings() {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -6,3 +13,5 @@ export function Settings() {
     </div>
   );
 }
+
+export default Settings;

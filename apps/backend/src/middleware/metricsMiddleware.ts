@@ -22,7 +22,7 @@ export function metricsMiddleware(
   const originalEnd = res.end;
 
   // Override res.end to capture metrics when response completes
-  res.end = function (chunk?: unknown, encoding?: BufferEncoding): Response {
+  res.end = function (chunk?: unknown, encoding?: string): Response {
     // Calculate request duration in seconds
     const duration = (Date.now() - startTime) / 1000;
 
