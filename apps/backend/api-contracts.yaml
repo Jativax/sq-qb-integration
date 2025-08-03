@@ -1,0 +1,347 @@
+openapi: 3.0.0
+info:
+  title: Square-QuickBooks Integration API
+  version: 1.0.0
+  description: |
+    API for processing Square orders and syncing them to QuickBooks.
+
+    This service receives webhook notifications from Square, validates them,
+    and queues orders for processing and synchronization with QuickBooks.
+  contact:
+    name: API Support
+    email: support@sq-qb-integration.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://api.sq-qb-integration.com
+    description: Production server
+
+paths:
+  /api/v1/webhooks/square:
+    post:
+      summary: Receives and processes a webhook notification from Square
+      description: |
+        This endpoint is the entry point for all Square webhook events. 
+        It validates the request signature and queues the order for processing.
+
+        **Webhook Validation:**
+        - Verifies the Square webhook signature
+        - Validates the payload structure
+        - Ensures the event type is supported
+
+        **Processing:**
+        - Creates a SquareOrder record
+        - Queues a SyncJob for processing
+        - Returns immediate acknowledgment
+      operationId: receiveSquareWebhook
+      tags:
+        - Webhooks
+      security:
+        - SquareWebhookSignature: []
+      requestBody:
+        required: true
+        description: Square webhook payload containing order data
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SquareWebhookPayload'
+            examples:
+              order_updated:
+                summary: Order updated webhook
+                value:
+                  merchant_id: 'MLEFBHHSJGVHD'
+                  type: 'order.updated'
+                  event_id: '2ca5c913-9d3e-4456-af88-b2c7dccfeb61'
+                  created_at: '2023-01-01T12:00:00Z'
+                  data:
+                    type: 'order'
+                    id: 'CAISEM82RcpmcFBM0TfOyiHV3es'
+                    object:
+                      order_id: 'CAISEM82RcpmcFBM0TfOyiHV3es'
+                      version: 1
+                      location_id: 'S8GWD5R9QB'
+                      state: 'COMPLETED'
+                      created_at: '2023-01-01T12:00:00Z'
+                      updated_at: '2023-01-01T12:05:00Z'
+                      total_money:
+                        amount: 1500
+                        currency: 'USD'
+      responses:
+        '202':
+          description: Webhook received and accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+              examples:
+                success:
+                  summary: Successful webhook processing
+                  value:
+                    message: 'Webhook received and queued for processing'
+                    order_id: 'CAISEM82RcpmcFBM0TfOyiHV3es'
+                    job_id: 'clk1234567890abcdef'
+                    status: 'queued'
+        '400':
+          description: Bad Request - Invalid payload or signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_payload:
+                  summary: Invalid webhook payload
+                  value:
+                    error: 'Bad Request'
+                    message: 'Invalid webhook payload structure'
+                    code: 'INVALID_PAYLOAD'
+                invalid_signature:
+                  summary: Invalid webhook signature
+                  value:
+                    error: 'Bad Request'
+                    message: 'Webhook signature validation failed'
+                    code: 'INVALID_SIGNATURE'
+        '401':
+          description: Unauthorized - Failed signature validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  summary: Signature validation failed
+                  value:
+                    error: 'Unauthorized'
+                    message: 'Webhook signature validation failed'
+                    code: 'SIGNATURE_VALIDATION_FAILED'
+        '500':
+          description: Internal Server Error - Unexpected server errors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                server_error:
+                  summary: Internal server error
+                  value:
+                    error: 'Internal Server Error'
+                    message: 'An unexpected error occurred while processing the webhook'
+                    code: 'INTERNAL_ERROR'
+
+components:
+  securitySchemes:
+    SquareWebhookSignature:
+      type: apiKey
+      in: header
+      name: X-Square-Signature
+      description: |
+        Square webhook signature for request validation.
+        See: https://developer.squareup.com/docs/webhooks/step3validate
+
+  schemas:
+    SquareWebhookPayload:
+      type: object
+      required:
+        - merchant_id
+        - type
+        - event_id
+        - created_at
+        - data
+      properties:
+        merchant_id:
+          type: string
+          description: The ID of the merchant associated with the webhook event
+          example: 'MLEFBHHSJGVHD'
+        type:
+          type: string
+          description: The type of event that triggered the webhook
+          enum:
+            - order.created
+            - order.updated
+            - order.fulfilled
+          example: 'order.updated'
+        event_id:
+          type: string
+          format: uuid
+          description: A unique identifier for the webhook event
+          example: '2ca5c913-9d3e-4456-af88-b2c7dccfeb61'
+        created_at:
+          type: string
+          format: date-time
+          description: RFC 3339 timestamp of when the event was created
+          example: '2023-01-01T12:00:00Z'
+        data:
+          type: object
+          description: The event data containing the Square order object
+          required:
+            - type
+            - id
+            - object
+          properties:
+            type:
+              type: string
+              description: The type of object in the event data
+              example: 'order'
+            id:
+              type: string
+              description: The unique identifier of the object
+              example: 'CAISEM82RcpmcFBM0TfOyiHV3es'
+            object:
+              $ref: '#/components/schemas/SquareOrder'
+      example:
+        merchant_id: 'MLEFBHHSJGVHD'
+        type: 'order.updated'
+        event_id: '2ca5c913-9d3e-4456-af88-b2c7dccfeb61'
+        created_at: '2023-01-01T12:00:00Z'
+        data:
+          type: 'order'
+          id: 'CAISEM82RcpmcFBM0TfOyiHV3es'
+          object:
+            order_id: 'CAISEM82RcpmcFBM0TfOyiHV3es'
+            version: 1
+            location_id: 'S8GWD5R9QB'
+            state: 'COMPLETED'
+            created_at: '2023-01-01T12:00:00Z'
+            updated_at: '2023-01-01T12:05:00Z'
+            total_money:
+              amount: 1500
+              currency: 'USD'
+
+    SquareOrder:
+      type: object
+      description: Square order object from the webhook payload
+      properties:
+        order_id:
+          type: string
+          description: The unique identifier for the order assigned by Square
+          example: 'CAISEM82RcpmcFBM0TfOyiHV3es'
+        version:
+          type: integer
+          description: The version number of the order, which is incremented each time an update is committed
+          example: 1
+        location_id:
+          type: string
+          description: The ID of the location associated with the order
+          example: 'S8GWD5R9QB'
+        state:
+          type: string
+          description: The state of the order
+          enum:
+            - OPEN
+            - COMPLETED
+            - CANCELED
+          example: 'COMPLETED'
+        created_at:
+          type: string
+          format: date-time
+          description: RFC 3339 timestamp of when the order was created
+          example: '2023-01-01T12:00:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          description: RFC 3339 timestamp of when the order was last updated
+          example: '2023-01-01T12:05:00Z'
+        total_money:
+          $ref: '#/components/schemas/Money'
+        line_items:
+          type: array
+          description: The line items included in the order
+          items:
+            $ref: '#/components/schemas/OrderLineItem'
+
+    Money:
+      type: object
+      description: Represents an amount of money
+      required:
+        - amount
+        - currency
+      properties:
+        amount:
+          type: integer
+          description: The amount of money, in the smallest denomination of the currency
+          example: 1500
+        currency:
+          type: string
+          description: The 3-character ISO 4217 currency code
+          example: 'USD'
+
+    OrderLineItem:
+      type: object
+      description: Represents a line item in a Square order
+      properties:
+        uid:
+          type: string
+          description: Unique identifier for the line item within the order
+          example: 'BWJA5Q0QFUUUFLP0KQHXBSNW'
+        name:
+          type: string
+          description: The name of the line item
+          example: 'Coffee'
+        quantity:
+          type: string
+          description: The quantity purchased, formatted as a decimal number
+          example: '1'
+        base_price_money:
+          $ref: '#/components/schemas/Money'
+        total_money:
+          $ref: '#/components/schemas/Money'
+
+    WebhookResponse:
+      type: object
+      description: Response returned after successfully processing a webhook
+      required:
+        - message
+        - status
+      properties:
+        message:
+          type: string
+          description: Human-readable success message
+          example: 'Webhook received and queued for processing'
+        order_id:
+          type: string
+          description: The Square order ID that was processed
+          example: 'CAISEM82RcpmcFBM0TfOyiHV3es'
+        job_id:
+          type: string
+          description: The unique identifier of the created sync job
+          example: 'clk1234567890abcdef'
+        status:
+          type: string
+          description: The current status of the webhook processing
+          enum:
+            - queued
+            - processing
+            - completed
+            - failed
+          example: 'queued'
+
+    ErrorResponse:
+      type: object
+      description: Error response format
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: The error type
+          example: 'Bad Request'
+        message:
+          type: string
+          description: Human-readable error message
+          example: 'Invalid webhook payload structure'
+        code:
+          type: string
+          description: Machine-readable error code
+          example: 'INVALID_PAYLOAD'
+        details:
+          type: object
+          description: Additional error details (optional)
+          additionalProperties: true
+
+tags:
+  - name: Webhooks
+    description: Webhook endpoints for receiving external events

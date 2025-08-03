@@ -81,6 +81,12 @@ npx pnpm dev
 - `npx pnpm db:seed` - Seed the database with initial data
 - `npx pnpm db:reset` - Reset database and run all migrations
 
+### Testing Scripts
+
+- `npx pnpm test` - Run all tests
+- `npx pnpm test:watch` - Run tests in watch mode
+- `npx pnpm test:coverage` - Run tests with coverage report
+
 ## Project Structure
 
 ```
@@ -88,9 +94,16 @@ sq-qb-integration/
 ├── apps/
 │   └── backend/           # Backend Node.js/TypeScript application
 │       ├── src/
+│       │   ├── routes/    # Express route handlers
+│       │   ├── schemas/   # Zod validation schemas
+│       │   ├── services/  # Business logic services
+│       │   │   └── __tests__/ # Service unit tests
+│       │   ├── setupTests.ts  # Jest test configuration
 │       │   └── index.ts   # Application entry point
 │       ├── prisma/
 │       │   └── schema.prisma # Database schema and models
+│       ├── api-contracts.yaml # OpenAPI 3.0 specification
+│       ├── jest.config.js # Jest testing configuration
 │       ├── package.json
 │       └── tsconfig.json
 ├── packages/              # Shared packages (future)
@@ -113,6 +126,15 @@ Both services use named volumes for data persistence and include health checks.
 
 See `.env.example` for all available configuration options.
 
+## API Documentation
+
+The backend API is documented using OpenAPI 3.0 specification:
+
+- **Location**: `apps/backend/api-contracts.yaml`
+- **Webhook Endpoint**: `POST /api/v1/webhooks/square`
+- **Authentication**: Square webhook signature validation
+- **Response Formats**: JSON with proper HTTP status codes
+
 ## Code Quality
 
 This project uses:
@@ -121,5 +143,9 @@ This project uses:
 - **Prettier** for code formatting
 - **Husky** for pre-commit hooks
 - **TypeScript** with strict configuration
+- **OpenAPI 3.0** for API contract definition
+- **Jest** for unit testing with TypeScript support
+- **Supertest** for API endpoint testing
+- **Nock** for HTTP request mocking
 
 Pre-commit hooks automatically run linting and format checking.

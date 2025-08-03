@@ -20,7 +20,10 @@
     "db:migrate": "pnpm --filter backend prisma:migrate",
     "db:studio": "pnpm --filter backend prisma:studio",
     "db:seed": "pnpm --filter backend prisma:seed",
-    "db:reset": "pnpm --filter backend prisma:reset"
+    "db:reset": "pnpm --filter backend prisma:reset",
+    "test": "pnpm --filter backend test",
+    "test:watch": "pnpm --filter backend test:watch",
+    "test:coverage": "pnpm --filter backend test:coverage"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.0.0",
