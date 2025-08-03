@@ -10,26 +10,46 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Example models for SQ-QB Integration
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// Production models for Square to QuickBooks Integration
 
-  @@map("users")
+model SquareOrder {
+  id            String   @id @default(cuid())
+  squareOrderId String   @unique
+  status        String   // "PENDING", "PROCESSING", "COMPLETED", "FAILED"
+  payload       Json     // Full Square order object
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // One-to-one relationship with QuickBooksReceipt
+  quickBooksReceipt QuickBooksReceipt?
+
+  @@map("square_orders")
 }
 
-model Transaction {
-  id          String   @id @default(cuid())
-  squareId    String?  @unique
-  qbId        String?  @unique
-  amount      Int      // Amount in cents
-  description String?
-  status      String   @default("pending")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model QuickBooksReceipt {
+  id            String   @id @default(cuid())
+  qbReceiptId   String   @unique
+  syncStatus    String   // "SYNCED", "FAILED", "PENDING_REVIEW"
+  totalAmount   Decimal  @db.Decimal(10, 2)
+  rawQBData     Json     // Response from QuickBooks
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  @@map("transactions")
+  // Required relationship to SquareOrder (one-to-one)
+  squareOrder   SquareOrder @relation(fields: [squareOrderId], references: [id])
+  squareOrderId String      @unique
+
+  @@map("quickbooks_receipts")
+}
+
+model SyncJob {
+  id              String   @id @default(cuid())
+  status          String   // "QUEUED", "PROCESSING", "COMPLETED", "FAILED"
+  attempts        Int      @default(0)
+  lastAttemptedAt DateTime @updatedAt
+  logs            Json     // Processing logs or error messages
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("sync_jobs")
 }
