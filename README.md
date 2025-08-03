@@ -24,6 +24,7 @@ Edit `.env` with your actual values:
 POSTGRES_USER=your_username
 POSTGRES_PASSWORD=your_secure_password
 POSTGRES_DB=sq_qb_integration
+DATABASE_URL=postgresql://your_username:your_secure_password@localhost:5432/sq_qb_integration?schema=public
 ```
 
 ### 2. Install Dependencies
@@ -40,7 +41,16 @@ Start PostgreSQL and Redis containers:
 npx pnpm docker:up
 ```
 
-### 4. Start Development Server
+### 4. Setup Database
+
+Generate Prisma client and run initial migration:
+
+```bash
+npx pnpm db:generate
+npx pnpm db:migrate
+```
+
+### 5. Start Development Server
 
 ```bash
 npx pnpm dev
@@ -63,6 +73,14 @@ npx pnpm dev
 - `npx pnpm docker:restart` - Restart services
 - `npx pnpm docker:clean` - Stop services and remove volumes
 
+### Database Scripts (Prisma)
+
+- `npx pnpm db:generate` - Generate Prisma client
+- `npx pnpm db:migrate` - Run database migrations
+- `npx pnpm db:studio` - Open Prisma Studio (database GUI)
+- `npx pnpm db:seed` - Seed the database with initial data
+- `npx pnpm db:reset` - Reset database and run all migrations
+
 ## Project Structure
 
 ```
@@ -71,6 +89,8 @@ sq-qb-integration/
 │   └── backend/           # Backend Node.js/TypeScript application
 │       ├── src/
 │       │   └── index.ts   # Application entry point
+│       ├── prisma/
+│       │   └── schema.prisma # Database schema and models
 │       ├── package.json
 │       └── tsconfig.json
 ├── packages/              # Shared packages (future)
