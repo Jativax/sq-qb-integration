@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Main application database
   db:
@@ -13,11 +11,15 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-sq_qb_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your_secure_password}
     ports:
-      - "5432:5432"
+      - '5432:5432'
     networks:
       - sq-qb-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sq_qb_user} -d ${POSTGRES_DB:-sq_qb_integration}"]
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-sq_qb_user} -d ${POSTGRES_DB:-sq_qb_integration}',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,11 +32,11 @@ services:
     volumes:
       - redisdata:/data
     ports:
-      - "6379:6379"
+      - '6379:6379'
     networks:
       - sq-qb-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -54,7 +56,7 @@ services:
       - MAX_CLIENT_CONN=100
       - DEFAULT_POOL_SIZE=20
     ports:
-      - "6432:6432"
+      - '6432:6432'
     depends_on:
       db:
         condition: service_healthy
