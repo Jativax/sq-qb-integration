@@ -126,6 +126,14 @@ This project has undergone comprehensive modernization to ensure production-read
 - **🌐 Nginx Configuration**: Custom Nginx setup for optimal React SPA serving with proper routing
 - **📦 Image Publishing**: Automated Docker Hub publishing via GitHub Actions CI/CD pipeline
 
+#### **CI/CD Database Network Resolution**
+
+- **✅ Docker Network Database Operations**: Final fix to resolve "Can't reach database server" errors by running Prisma migrations inside Docker network
+- **✅ Backend Service Runner**: Added dedicated `backend_service_runner` service in `docker-compose.yml` for CI database operations
+- **✅ Network-Aware Environment**: Updated `.env.ci` to use `pgbouncer` service name instead of `localhost` for proper Docker network connectivity
+- **✅ Environment Variable Integration**: Implemented `dotenv-cli` for robust environment loading in CI pipeline
+- **✅ Production-Ready CI Commands**: Database migrations and seeding now execute via `docker compose run --rm backend_service_runner`
+
 ### **⚙️ CI/CD Pipeline Excellence**
 
 #### **GitHub Actions Workflow**
@@ -219,6 +227,7 @@ This project has undergone comprehensive modernization to ensure production-read
 - **✅ Modern Standards**: Latest Docker Compose V2, GitHub Actions, and testing frameworks
 - **🎯 Best Practices**: Industry-standard CI/CD practices and code quality measures
 - **🚀 Future-Proof**: Architecture designed for long-term maintainability and scaling
+- **🔗 Network-Native CI/CD**: Complete resolution of database connectivity issues with Docker network-aware operations
 
 ---
 
@@ -301,6 +310,7 @@ The project includes a comprehensive, fully automated validation script (`run-ci
 - **Self-Cleaning**: Ensures proper cleanup of processes and containers regardless of test outcomes
 - **Colored Output**: Clear visual feedback with step-by-step progress indicators
 - **✅ **Modern Infrastructure\*\*: Uses Docker Compose V2 and latest testing frameworks for maximum CI/CD compatibility
+- **🔗 **Network-Native Operations\*\*: Database migrations and E2E tests execute within Docker network for reliable connectivity
 
 ### **Validation Steps Performed**
 
