@@ -55,6 +55,7 @@ npx pnpm db:seed
 ```
 
 **Test Credentials** (seeded automatically):
+
 - **Admin**: `admin@sqqb.com` / `admin123` (full access including job retry)
 - **Viewer**: `viewer@sqqb.com` / `viewer123` (read-only access to all data)
 
@@ -130,6 +131,53 @@ The backend will be available at `http://localhost:3001` and the frontend at `ht
 - `npx pnpm test:e2e:debug` - Run E2E tests in interactive debug mode
 - `npx pnpm test:e2e:install` - Install Playwright browsers and dependencies
 
+### CI/CD Validation Scripts
+
+- `npx pnpm ci:checks` - **Comprehensive automated quality gate** for deployment validation
+
+## 🤖 **Automated CI/CD Validation**
+
+The project includes a comprehensive, fully automated validation script (`run-ci-checks.sh`) that serves as the final quality gate before deployment. This script validates the entire project's integrity without any human intervention.
+
+### **Script Features**
+
+- **Fail-Fast Behavior**: Exits immediately on any failure with clear error reporting
+- **Comprehensive Coverage**: Tests formatting, linting, compilation, unit tests, and E2E tests
+- **Automated Environment**: Sets up Docker services, databases, and applications automatically
+- **Self-Cleaning**: Ensures proper cleanup of processes and containers regardless of test outcomes
+- **Colored Output**: Clear visual feedback with step-by-step progress indicators
+
+### **Validation Steps Performed**
+
+1. **Code Formatting Check** - Validates Prettier standards across entire codebase
+2. **ESLint Code Quality** - Checks for linting errors in frontend and backend
+3. **TypeScript Compilation** - Ensures both applications compile without errors
+4. **Backend Unit Tests** - Executes Jest test suite for comprehensive code coverage
+5. **End-to-End Tests** - Full application flow testing with real database and services
+6. **Automatic Cleanup** - Stops processes and containers after testing
+
+### **Usage**
+
+```bash
+# Run full CI validation (recommended before deployment)
+npx pnpm ci:checks
+
+# Alternative direct execution
+bash run-ci-checks.sh
+```
+
+### **CI/CD Integration**
+
+This script is designed for seamless integration into CI/CD pipelines:
+
+```yaml
+# Example GitHub Actions step
+- name: Run comprehensive validation
+  run: npx pnpm ci:checks
+```
+
+**Success Criteria**: Script exits with code `0` and displays "✅ All checks passed! The project is ready for deployment."
+
 ## Production Deployment
 
 The application supports secure production deployment using Docker Secrets for sensitive credential management.
@@ -146,23 +194,25 @@ In production, sensitive credentials are managed using Docker Secrets instead of
 ### Setting Up Production Secrets
 
 1. **Create the secrets directory** (already in repository, but gitignored):
+
    ```bash
    mkdir -p secrets/
    ```
 
 2. **Populate secret files with your production values**:
+
    ```bash
    # Database credentials
    echo "your_production_postgres_password" > secrets/postgres_password.txt
-   
+
    # Application security
    echo "your_production_pepper_value_at_least_16_chars" > secrets/password_pepper.txt
-   
+
    # Square API credentials
    echo "your_production_square_access_token" > secrets/square_access_token.txt
    echo "your_production_square_application_id" > secrets/square_application_id.txt
    echo "your_production_square_webhook_signature_key" > secrets/square_webhook_signature_key.txt
-   
+
    # QuickBooks API credentials
    echo "your_production_qb_access_token" > secrets/qb_access_token.txt
    echo "your_production_qb_realm_id" > secrets/qb_realm_id.txt
@@ -176,11 +226,13 @@ In production, sensitive credentials are managed using Docker Secrets instead of
 ### Production Deployment Commands
 
 1. **Deploy with production configuration**:
+
    ```bash
    docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
    ```
 
 2. **View production logs**:
+
    ```bash
    docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
    ```
@@ -208,6 +260,7 @@ The application automatically detects the environment and loads configuration ac
 - **Production** (`NODE_ENV === 'production'`): Reads sensitive values from Docker secret files
 
 This dual approach ensures:
+
 - Easy local development with `.env` files
 - Secure production deployment with Docker Secrets
 - No code changes required between environments
@@ -538,13 +591,15 @@ The application has undergone significant refactoring to improve maintainability
 **Location**: `apps/backend/src/config/index.ts`
 
 **Features**:
+
 - **Zod Validation**: All environment variables validated with types at startup
-- **Type Safety**: Exported configuration object with full TypeScript support  
+- **Type Safety**: Exported configuration object with full TypeScript support
 - **Environment-Specific Validation**: Production requires real API credentials
 - **Fail-Fast**: Application exits on startup if configuration is invalid
 - **Comprehensive Logging**: Clear error messages for missing/invalid variables
 
 **Benefits**:
+
 ```typescript
 // Before: Direct environment access throughout codebase
 const port = process.env.PORT || 3001;
@@ -556,6 +611,7 @@ const { PORT, REDIS_HOST } = config; // Fully typed and validated
 ```
 
 **Configuration Schema**:
+
 ```typescript
 // All environment variables with validation
 NODE_ENV: 'development' | 'production' | 'test'
@@ -572,6 +628,7 @@ SQUARE_WEBHOOK_SIGNATURE_KEY: string (required)
 **Location**: `apps/backend/src/services/db.ts`
 
 **Features**:
+
 - **Single Connection**: One PrismaClient instance across the entire application
 - **Hot-Reload Protection**: Uses `globalThis` in development to prevent connection leaks
 - **Environment Awareness**: Different behavior for development vs production
@@ -579,6 +636,7 @@ SQUARE_WEBHOOK_SIGNATURE_KEY: string (required)
 - **Dependency Injection Removal**: Simplified OrderProcessor and other services
 
 **Benefits**:
+
 ```typescript
 // Before: Multiple PrismaClient instances
 class OrderProcessor {
@@ -586,7 +644,7 @@ class OrderProcessor {
 }
 const prisma = new PrismaClient(); // Multiple instances created
 
-// After: Singleton pattern  
+// After: Singleton pattern
 import { getPrismaClient } from './services/db';
 class OrderProcessor {
   private prismaClient = getPrismaClient(); // Always same instance
@@ -594,6 +652,7 @@ class OrderProcessor {
 ```
 
 **Performance Impact**:
+
 - **Reduced Memory**: Single connection pool instead of multiple instances
 - **Faster Development**: No connection leaks during hot-reloads
 - **Simplified Testing**: Centralized mocking for all database operations
@@ -603,12 +662,14 @@ class OrderProcessor {
 **Location**: `apps/backend/src/services/logger.ts`
 
 **Features**:
+
 - **Structured Format**: JSON logs with contextual data instead of plain strings
 - **Environment-Aware**: Pretty printing in development, JSON in production
 - **Performance**: High-performance logger designed for production use
 - **Context-Rich**: Object-based logging with error details, IDs, and metadata
 
 **Benefits**:
+
 ```typescript
 // Before: Basic console logging
 console.log('Processing order:', orderId);
@@ -620,6 +681,7 @@ logger.error({ err: error, orderId }, 'An error occurred');
 ```
 
 **Log Format Examples**:
+
 ```json
 // Development (pretty-printed)
 INFO: Processing order
@@ -634,6 +696,7 @@ INFO: Processing order
 #### **4. Component Organization & Separation of Concerns**
 
 **Improved Structure**:
+
 ```
 apps/frontend/src/pages/
 ├── Analytics.tsx    # Dedicated analytics page component
@@ -644,21 +707,29 @@ apps/frontend/src/pages/
 ```
 
 **Benefits**:
+
 - **Maintainability**: Each page component in its own file with proper documentation
 - **Reusability**: Components can be easily imported and tested independently
 - **Developer Experience**: Better IDE support with clear file organization
 - **Scalability**: Easy to add new pages and features without cluttering App.tsx
 
 **Before vs After**:
+
 ```typescript
 // Before: Inline components in App.tsx
-function Analytics() { /* component code */ }
-function QueueMonitor() { /* component code */ }
-function Settings() { /* component code */ }
+function Analytics() {
+  /* component code */
+}
+function QueueMonitor() {
+  /* component code */
+}
+function Settings() {
+  /* component code */
+}
 
 // After: Proper separation with dedicated files
 import Analytics from './pages/Analytics';
-import QueueMonitor from './pages/QueueMonitor';  
+import QueueMonitor from './pages/QueueMonitor';
 import Settings from './pages/Settings';
 ```
 
@@ -667,6 +738,7 @@ import Settings from './pages/Settings';
 #### **Environment Variable Management**
 
 **Backend Configuration** (validated at startup):
+
 ```bash
 # All variables now validated with proper types
 NODE_ENV=development          # Enum: development|production|test
@@ -678,6 +750,7 @@ SQUARE_WEBHOOK_SIGNATURE_KEY=key # Required validation
 #### **Database Connection Management**
 
 **Single Source of Truth**:
+
 ```typescript
 // Everywhere in the application:
 import { getPrismaClient } from './services/db';
@@ -687,6 +760,7 @@ const prisma = getPrismaClient(); // Always returns the same instance
 #### **Logging Consistency**
 
 **Structured Logging Everywhere**:
+
 ```typescript
 // Services, workers, middleware all use consistent logging:
 logger.info({ jobId, orderId }, 'Job started');
@@ -697,16 +771,19 @@ logger.debug({ query, duration }, 'Database query');
 ### **Production Readiness Enhancements**
 
 #### **Startup Validation**
+
 - **Configuration Errors**: Application won't start with invalid environment variables
 - **Database Connection**: Automatic validation of Prisma connection on startup
 - **Type Safety**: Compile-time guarantees for all configuration usage
 
 #### **Performance Optimizations**
+
 - **Single Database Connection**: Eliminates connection overhead and pooling issues
 - **Structured Logging**: High-performance logging with minimal runtime overhead
 - **Environment-Specific Behavior**: Optimized settings for development vs production
 
 #### **Maintainability Improvements**
+
 - **Single Configuration Source**: No more scattered `process.env` access throughout codebase
 - **Component Organization**: Clear separation of concerns in frontend architecture
 - **Consistent Patterns**: Standardized approaches for logging, database access, and configuration
@@ -716,27 +793,32 @@ These improvements represent a significant step toward production-grade architec
 ## 📊 **Analytics & Monitoring Features**
 
 ### **Real-Time Dashboard**
+
 The Analytics page provides comprehensive insights into system performance and business metrics:
 
 #### **Key Performance Indicators**
+
 - **Job Processing Metrics**: Success rates, throughput, queue status
-- **API Performance**: Response times, error rates, P95 latencies  
+- **API Performance**: Response times, error rates, P95 latencies
 - **System Health**: Memory usage, uptime, resource utilization
 - **Business Intelligence**: Order processing statistics, external API usage
 
 #### **Interactive Visualizations**
+
 - **Stat Cards Grid**: 6 key metrics with trend indicators and status badges
 - **Jobs History Chart**: Stacked bar chart showing processing status over time
 - **Performance Latency Chart**: Multi-line chart tracking API response times
 - **API Usage Chart**: Pie chart for call distribution + bar chart for performance comparison
 
 #### **Real-Time Features**
+
 - **Auto-Refresh**: Live data updates every 30 seconds
 - **Smart Caching**: Optimized data fetching with 15-second stale time
 - **Error Recovery**: Graceful error handling with one-click retry
 - **Mobile Responsive**: Adaptive layouts for all screen sizes
 
 ### **Security & Access Control**
+
 - **Role-Based Access**: VIEWER role or higher required for analytics
 - **Session Management**: Secure token-based authentication
 - **Audit Trail Integration**: All page views and interactions logged
@@ -747,6 +829,7 @@ The Analytics page provides comprehensive insights into system performance and b
 **Location**: `apps/backend/src/services/authService.ts`, `apps/backend/src/middleware/`
 
 **Features**:
+
 - **Secure Authentication**: Argon2 password hashing with session-based auth
 - **Role Hierarchy**: ADMIN (full access) > VIEWER (read-only access)
 - **Session Management**: 24-hour sessions with automatic extension
@@ -754,6 +837,7 @@ The Analytics page provides comprehensive insights into system performance and b
 - **Comprehensive Audit Trail**: All auth events logged with user context
 
 **Database Schema**:
+
 ```sql
 -- User management with roles
 User {
@@ -773,6 +857,7 @@ Session {
 ```
 
 **API Security**:
+
 ```typescript
 // Protected routes with role requirements
 POST /api/v1/jobs/:jobId/retry  // ADMIN only
@@ -785,6 +870,7 @@ const { isAdmin, isViewer } = useAuth();
 ```
 
 **Test Credentials**:
+
 - **Admin**: `admin@sqqb.com` / `admin123` (full access including job retry)
 - **Viewer**: `viewer@sqqb.com` / `viewer123` (read-only access to all data)
 
@@ -793,6 +879,7 @@ const { isAdmin, isViewer } = useAuth();
 **Location**: `apps/backend/src/routes/analytics.ts`
 
 **Features**:
+
 - **Prometheus Metrics Parsing**: Custom parser for text-based Prometheus format
 - **Structured JSON Response**: Easy consumption by frontend charting libraries
 - **Performance Insights**: Job processing, API latency, queue depth metrics
@@ -800,12 +887,14 @@ const { isAdmin, isViewer } = useAuth();
 - **Role-Based Access**: VIEWER role or higher required
 
 **API Endpoints**:
+
 ```typescript
-GET /api/v1/analytics/metrics     // Structured JSON metrics
-GET /api/v1/analytics/metrics/raw // Raw Prometheus format
+GET / api / v1 / analytics / metrics; // Structured JSON metrics
+GET / api / v1 / analytics / metrics / raw; // Raw Prometheus format
 ```
 
 **Response Structure**:
+
 ```json
 {
   "jobsProcessed": {
@@ -823,7 +912,7 @@ GET /api/v1/analytics/metrics/raw // Raw Prometheus format
   "apiMetrics": {
     "totalRequests": 1250,
     "averageResponseTime": 0.125,
-    "requestsP95": 0.350
+    "requestsP95": 0.35
   },
   "externalApiMetrics": {
     "square": {
@@ -850,6 +939,7 @@ GET /api/v1/analytics/metrics/raw // Raw Prometheus format
 ```
 
 **Benefits**:
+
 - **Frontend Integration**: Direct consumption by React components and charts
 - **Performance Monitoring**: Real-time insights into system health
 - **Custom Parsing**: No external dependencies for Prometheus metric processing
@@ -860,6 +950,7 @@ GET /api/v1/analytics/metrics/raw // Raw Prometheus format
 **Location**: `apps/frontend/src/pages/Analytics.tsx`, `apps/frontend/src/components/analytics/`
 
 **Features**:
+
 - **Real-time Data Visualization**: Live dashboard with 30-second auto-refresh
 - **Professional Charting**: Recharts library for interactive, responsive visualizations
 - **Comprehensive Metrics Display**: Key performance indicators and detailed analytics
@@ -869,6 +960,7 @@ GET /api/v1/analytics/metrics/raw // Raw Prometheus format
 **Dashboard Components**:
 
 **StatCardGrid**:
+
 ```typescript
 // Key metrics overview with 6 primary indicators
 - Total Jobs Processed (completed vs failed breakdown)
@@ -880,6 +972,7 @@ GET /api/v1/analytics/metrics/raw // Raw Prometheus format
 ```
 
 **JobsHistoryChart**:
+
 ```typescript
 // Stacked bar chart showing job processing over time
 - Color-coded status: Green (completed), Red (failed), Yellow (active), Gray (waiting)
@@ -888,15 +981,17 @@ GET /api/v1/analytics/metrics/raw // Raw Prometheus format
 ```
 
 **PerformanceLatencyChart**:
+
 ```typescript
 // Multi-line chart for API response times
 - Square API latency (P95 response times)
-- QuickBooks API latency (P95 response times)  
+- QuickBooks API latency (P95 response times)
 - Internal API latency (application performance)
 - 24-hour timeline with performance summary
 ```
 
 **ApiUsageChart**:
+
 ```typescript
 // Dual visualization: Pie chart + Bar chart
 - Call distribution between Square and QuickBooks APIs
@@ -905,6 +1000,7 @@ GET /api/v1/analytics/metrics/raw // Raw Prometheus format
 ```
 
 **Technical Implementation**:
+
 ```typescript
 // API Integration
 const { data: metrics, isLoading, error } = useAnalyticsMetrics();
@@ -920,21 +1016,24 @@ staleTime: 15 * 1000,      // 15 seconds cache
 ```
 
 **Navigation Integration**:
+
 - **Menu Link**: "Analytics" in main sidebar navigation
 - **Route**: `/analytics` protected by authentication
 - **Icon**: Chart bar icon for visual identification
 - **Access Control**: Requires VIEWER role or higher
 
 **Dependencies Added**:
+
 ```json
 {
-  "recharts": "^2.12.7"  // React charting library
+  "recharts": "^2.12.7" // React charting library
 }
 ```
 
 **Data Flow Architecture**:
+
 ```
-Backend Analytics API 
+Backend Analytics API
   ↓ /api/v1/analytics/metrics
 API Service (getAnalyticsMetrics)
   ↓ TypeScript interfaces
@@ -948,6 +1047,7 @@ Interactive Visualizations
 ```
 
 **Responsive Design Features**:
+
 - **Mobile**: Single-column layout with stacked cards
 - **Tablet**: 2-column chart grid with optimized spacing
 - **Desktop**: 3-column metric cards with side-by-side charts
@@ -1754,24 +1854,28 @@ npx pnpm dev:all
 ### **Major Features Added**
 
 #### ✅ **Full-Stack Analytics Dashboard**
+
 - **Real-time Metrics**: Live performance monitoring with 30-second auto-refresh
 - **Interactive Charts**: 4 chart types with Recharts library (Stat Cards, Bar, Line, Pie)
 - **Comprehensive KPIs**: Job processing, API performance, system health, business metrics
 - **Mobile Responsive**: Adaptive layouts for all screen sizes
 
 #### ✅ **Role-Based Access Control (RBAC)**
+
 - **Secure Authentication**: Argon2 password hashing with session management
 - **Two User Roles**: ADMIN (full access) and VIEWER (read-only)
 - **Protected Routes**: All dashboard pages secured with proper access control
 - **Session Security**: 24-hour tokens with automatic extension
 
 #### ✅ **Enhanced API Architecture**
+
 - **Analytics Endpoint**: `/api/v1/analytics/metrics` with structured JSON response
 - **Custom Prometheus Parser**: Reliable metrics processing without external dependencies
 - **Audit Trail System**: Comprehensive logging of all user and system actions
 - **Database-Backed Sessions**: Secure token storage with cleanup
 
 #### ✅ **Production Infrastructure & Security**
+
 - **Docker Secrets Management**: Secure credential handling for production deployments
 - **PgBouncer Connection Pooling**: Scalable database connection management
 - **Password Pepper Security**: Enhanced password protection with server-side peppering
@@ -1779,10 +1883,18 @@ npx pnpm dev:all
 - **Financial Reconciliation**: Automated hourly cron job ensuring data integrity
 
 #### ✅ **Enterprise Architecture**
+
 - **Centralized Configuration**: Zod-validated environment variables with type safety
-- **Structured Logging**: Pino logger with development/production configurations  
+- **Structured Logging**: Pino logger with development/production configurations
 - **Prisma Singleton**: Optimized database connection management
 - **Advanced Mapping Engine**: Enhanced financial data transformation with discounts, tips, and surcharges
+
+#### ✅ **Automated CI/CD Quality Gate**
+
+- **Comprehensive Validation Script**: Fully automated `run-ci-checks.sh` with fail-fast behavior
+- **Multi-Layer Testing**: Code formatting, linting, compilation, unit tests, and E2E tests
+- **Self-Managing Environment**: Automatic Docker setup, database migrations, and cleanup
+- **Production-Ready**: Zero-intervention validation suitable for CI/CD pipelines
 
 ### **Technical Improvements**
 
@@ -1795,6 +1907,7 @@ npx pnpm dev:all
 ### **Ready for Production**
 
 This release represents a **complete enterprise-grade solution** with:
+
 - 🔐 **Security**: RBAC, session management, audit trails
 - 📊 **Monitoring**: Real-time analytics and performance metrics
 - 🏗️ **Architecture**: Scalable, maintainable, well-documented codebase
@@ -1805,4 +1918,4 @@ This release represents a **complete enterprise-grade solution** with:
 
 **Built with ❤️ for seamless Square-QuickBooks integration**
 
-*Last Updated: January 2025 - v1.0.0 Production-Ready Enterprise Integration with Full Security & Infrastructure*
+_Last Updated: January 2025 - v1.0.0 Production-Ready Enterprise Integration with Full Security & Infrastructure_
