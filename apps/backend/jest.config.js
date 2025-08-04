@@ -4,16 +4,7 @@ module.exports = {
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   transform: {
-    '^.+\\.ts$': [
-      '<rootDir>/node_modules/.bin/ts-jest',
-      {
-        tsconfig: {
-          compilerOptions: {
-            module: 'commonjs',
-          },
-        },
-      },
-    ],
+    '^.+\\.(t|j)sx?$': '@swc/jest',
   },
   collectCoverageFrom: [
     'src/**/*.ts',
