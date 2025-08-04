@@ -8,6 +8,7 @@ import { QueueService } from '../services/queueService';
 // Remove the non-existent import - webhook verification is handled in securityService
 import { webhookMetricsMiddleware } from '../middleware/metricsMiddleware';
 import logger from '../services/logger';
+import securityService from '../services/securityService';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const router: any = express.Router();
@@ -22,16 +23,32 @@ router.post(
   webhookMetricsMiddleware('square'),
   async (req: express.Request, res: express.Response) => {
     try {
+      const rawBody = (req as express.Request & { rawBody?: Buffer }).rawBody;
+      const requestUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+      const providedSignature = req.get('x-square-signature');
+
       logger.info(
         {
           headers: {
-            'x-square-signature': req.get('X-Square-Signature'),
+            'x-square-signature': providedSignature,
             'content-type': req.get('Content-Type'),
           },
-          body: req.body,
+          bodyLength: rawBody?.length,
         },
         'Received Square webhook'
       );
+
+      // Validate Square webhook signature BEFORE further processing
+      if (!rawBody ||
+          !securityService.validateSquareSignature(
+            rawBody,
+            requestUrl,
+            providedSignature
+          )) {
+        logger.warn('Invalid Square webhook signature');
+        res.status(401).json({ error: 'Unauthorized', message: 'Invalid webhook signature' });
+        return;
+      }
 
       // Validate the webhook payload using Zod schema
       const validatedPayload: SquareWebhookPayload = SquareWebhookSchema.parse(

@@ -1,4 +1,3 @@
-import { Request } from 'express';
 import crypto from 'crypto';
 import logger from './logger';
 import config from '../config';
@@ -9,53 +8,44 @@ export class SecurityService {
    * @param request Express request object with raw body attached
    * @returns true if signature is valid, false otherwise
    */
-  validateSquareSignature(request: Request): boolean {
+  /**
+   * Validates Square webhook signature using HMAC-SHA256.
+   * Square signs the **concatenation** of {requestUrl}{rawBody} as a UTF-8 string.
+   *
+   * @param rawBody Buffer with the raw request body (unparsed)
+   * @param requestUrl Full request URL (protocol + host + original path)
+   * @param providedSignature Signature from the `x-square-signature` header
+   * @returns `true` if signature is valid
+   */
+  validateSquareSignature(
+    rawBody: Buffer,
+    requestUrl: string,
+    providedSignature: string | undefined
+  ): boolean {
     try {
-      // Step 1: Retrieve the signature from the x-square-signature header
-      const providedSignature = request.get('x-square-signature');
       if (!providedSignature) {
         logger.warn('Missing x-square-signature header');
         return false;
       }
 
-      // Step 2: Get the webhook signature key from environment
       const signatureKey = config.SQUARE_WEBHOOK_SIGNATURE_KEY;
       if (!signatureKey) {
         logger.error('SQUARE_WEBHOOK_SIGNATURE_KEY not configured');
         return false;
       }
 
-      // Step 3: Retrieve the request URL and raw request body
-      const requestUrl = `${request.protocol}://${request.get('host')}${
-        request.originalUrl
-      }`;
-
-      // The raw body should be attached to the request object by the express.json verify function
-      const rawBody = (request as Request & { rawBody?: Buffer }).rawBody;
-      if (!rawBody) {
-        logger.error('Raw request body not available for signature validation');
-        return false;
-      }
-
-      // Step 4: Concatenate the request URL and the raw body
+      // Build payload and generate HMAC
       const signaturePayload = requestUrl + rawBody.toString('utf8');
-
-      // Step 5: Use crypto module to perform HMAC-SHA256 hash
       const hmac = crypto.createHmac('sha256', signatureKey);
       hmac.update(signaturePayload, 'utf8');
-
-      // Step 6: Base64-encode the resulting hash
       const generatedSignature = hmac.digest('base64');
 
-      // Step 7: Perform timing-safe comparison
       const isValid = crypto.timingSafeEqual(
         Buffer.from(providedSignature, 'utf8'),
         Buffer.from(generatedSignature, 'utf8')
       );
 
-      if (isValid) {
-        logger.info('Square webhook signature validation successful');
-      } else {
+      if (!isValid) {
         logger.warn(
           {
             providedSignature: providedSignature.substring(0, 10) + '...',
