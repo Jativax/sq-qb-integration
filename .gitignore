@@ -15,6 +15,9 @@ build/
 .env.production
 .env.test
 
+# Docker secrets (production)
+secrets/
+
 # IDE
 .vscode/
 .idea/

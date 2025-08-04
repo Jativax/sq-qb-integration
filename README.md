@@ -122,6 +122,97 @@ The backend will be available at `http://localhost:3001` and the frontend at `ht
 - `npx pnpm test:e2e:debug` - Run E2E tests in interactive debug mode
 - `npx pnpm test:e2e:install` - Install Playwright browsers and dependencies
 
+## Production Deployment
+
+The application supports secure production deployment using Docker Secrets for sensitive credential management.
+
+### Docker Secrets Architecture
+
+In production, sensitive credentials are managed using Docker Secrets instead of environment variables. This provides enhanced security by:
+
+- Storing secrets in encrypted form
+- Mounting secrets as files in containers (not exposed in environment)
+- Enabling secure secrets rotation
+- Preventing accidental credential exposure in logs
+
+### Setting Up Production Secrets
+
+1. **Create the secrets directory** (already in repository, but gitignored):
+   ```bash
+   mkdir -p secrets/
+   ```
+
+2. **Populate secret files with your production values**:
+   ```bash
+   # Database credentials
+   echo "your_production_postgres_password" > secrets/postgres_password.txt
+   
+   # Application security
+   echo "your_production_pepper_value_at_least_16_chars" > secrets/password_pepper.txt
+   
+   # Square API credentials
+   echo "your_production_square_access_token" > secrets/square_access_token.txt
+   echo "your_production_square_application_id" > secrets/square_application_id.txt
+   echo "your_production_square_webhook_signature_key" > secrets/square_webhook_signature_key.txt
+   
+   # QuickBooks API credentials
+   echo "your_production_qb_access_token" > secrets/qb_access_token.txt
+   echo "your_production_qb_realm_id" > secrets/qb_realm_id.txt
+   ```
+
+3. **Set proper file permissions**:
+   ```bash
+   chmod 600 secrets/*.txt  # Read/write for owner only
+   ```
+
+### Production Deployment Commands
+
+1. **Deploy with production configuration**:
+   ```bash
+   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+   ```
+
+2. **View production logs**:
+   ```bash
+   docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
+   ```
+
+3. **Stop production deployment**:
+   ```bash
+   docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
+   ```
+
+### Production Configuration Details
+
+The `docker-compose.prod.yml` file:
+
+- **Extends** the base `docker-compose.yml` configuration
+- **Maps Docker secrets** to files in `/run/secrets/` inside containers
+- **Sets production environment variables** (NODE_ENV=production, etc.)
+- **Configures higher performance settings** (increased worker concurrency)
+- **Uses PgBouncer** for database connection pooling
+
+### Environment-Aware Configuration
+
+The application automatically detects the environment and loads configuration accordingly:
+
+- **Development** (`NODE_ENV !== 'production'`): Reads from environment variables (`.env` file)
+- **Production** (`NODE_ENV === 'production'`): Reads sensitive values from Docker secret files
+
+This dual approach ensures:
+- Easy local development with `.env` files
+- Secure production deployment with Docker Secrets
+- No code changes required between environments
+
+### Security Best Practices
+
+- ✅ **Never commit** the `secrets/` directory to version control (gitignored)
+- ✅ **Use strong passwords** and rotate them regularly
+- ✅ **Limit file permissions** on secret files (600 or 400)
+- ✅ **Use separate secrets** for each environment (dev/staging/prod)
+- ✅ **Monitor secret access** in production environments
+- ✅ **Implement secrets rotation** procedures
+
 ## Project Structure
 
 ```

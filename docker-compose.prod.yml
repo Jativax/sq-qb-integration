@@ -1,0 +1,56 @@
+version: '3.8'
+
+# Production Docker Compose configuration
+# This file extends the base docker-compose.yml and adds Docker Secrets support
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  backend:
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      # Database connection through PgBouncer
+      - DATABASE_URL=postgresql://postgres:postgres@pgbouncer:6432/sq_qb_integration?pgbouncer=true
+      # Redis configuration
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      # Non-sensitive environment configuration
+      - SQUARE_ENVIRONMENT=production
+      - QB_ENVIRONMENT=production
+      - WORKER_CONCURRENCY=10
+    secrets:
+      - postgres_password
+      - password_pepper
+      - square_access_token
+      - square_application_id
+      - square_webhook_signature_key
+      - qb_access_token
+      - qb_realm_id
+    depends_on:
+      - pgbouncer
+      - redis
+
+  pgbouncer:
+    secrets:
+      - postgres_password
+
+  db:
+    secrets:
+      - postgres_password
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  password_pepper:
+    file: ./secrets/password_pepper.txt
+  square_access_token:
+    file: ./secrets/square_access_token.txt
+  square_application_id:
+    file: ./secrets/square_application_id.txt
+  square_webhook_signature_key:
+    file: ./secrets/square_webhook_signature_key.txt
+  qb_access_token:
+    file: ./secrets/qb_access_token.txt
+  qb_realm_id:
+    file: ./secrets/qb_realm_id.txt

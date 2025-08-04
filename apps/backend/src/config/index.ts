@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import fs from 'fs';
+import path from 'path';
 import logger from '../services/logger';
 
 /**
@@ -58,12 +60,73 @@ const configSchema = z.object({
 export type Config = z.infer<typeof configSchema>;
 
 /**
- * Load and validate configuration from environment variables
+ * Read Docker secret from file system
+ * @param secretName - Name of the secret file to read
+ * @returns Secret value as string, or undefined if file doesn't exist
+ */
+function readDockerSecret(secretName: string): string | undefined {
+  try {
+    const secretPath = path.join('/run/secrets', secretName);
+    if (fs.existsSync(secretPath)) {
+      return fs.readFileSync(secretPath, 'utf8').trim();
+    }
+    return undefined;
+  } catch (error) {
+    logger.warn({ secretName, err: error }, 'Failed to read Docker secret');
+    return undefined;
+  }
+}
+
+/**
+ * Load configuration values from Docker secrets (production) or environment variables (development)
+ * @returns Configuration object with all values populated
+ */
+function loadConfigurationValues(): Record<string, string | undefined> {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  if (isProduction) {
+    logger.info('Loading configuration from Docker secrets (production mode)');
+    
+    // In production, read sensitive values from Docker secrets
+    return {
+      // Keep non-sensitive values from environment
+      NODE_ENV: process.env.NODE_ENV,
+      PORT: process.env.PORT,
+      DATABASE_URL: process.env.DATABASE_URL,
+      REDIS_HOST: process.env.REDIS_HOST,
+      REDIS_PORT: process.env.REDIS_PORT,
+      REDIS_PASSWORD: process.env.REDIS_PASSWORD,
+      REDIS_DB: process.env.REDIS_DB,
+      SQUARE_ENVIRONMENT: process.env.SQUARE_ENVIRONMENT,
+      QB_ENVIRONMENT: process.env.QB_ENVIRONMENT,
+      WORKER_CONCURRENCY: process.env.WORKER_CONCURRENCY,
+      FORCE_QB_FAILURE: process.env.FORCE_QB_FAILURE,
+      
+      // Read sensitive values from Docker secrets
+      SQUARE_WEBHOOK_SIGNATURE_KEY: readDockerSecret('square_webhook_signature_key'),
+      SQUARE_ACCESS_TOKEN: readDockerSecret('square_access_token'),
+      SQUARE_APPLICATION_ID: readDockerSecret('square_application_id'),
+      QB_ACCESS_TOKEN: readDockerSecret('qb_access_token'),
+      QB_REALM_ID: readDockerSecret('qb_realm_id'),
+      PASSWORD_PEPPER: readDockerSecret('password_pepper'),
+    };
+  } else {
+    logger.info('Loading configuration from environment variables (development mode)');
+    // In development, use environment variables as before
+    return process.env as Record<string, string | undefined>;
+  }
+}
+
+/**
+ * Load and validate configuration from environment variables or Docker secrets
  */
 function loadConfig(): Config {
   try {
-    // Parse and validate environment variables
-    const config = configSchema.parse(process.env);
+    // Load configuration values (from secrets in production, env vars in development)
+    const configValues = loadConfigurationValues();
+    
+    // Parse and validate configuration values
+    const config = configSchema.parse(configValues);
 
     logger.info(
       {
