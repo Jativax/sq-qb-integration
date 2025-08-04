@@ -68,10 +68,10 @@ sleep 15
 
 # Apply database migrations and seeding INSIDE the Docker network
 echo "ℹ️  Applying database migrations..."
-docker compose run --rm backend_service_runner pnpm prisma migrate deploy
+docker compose run --rm backend_service_runner npx prisma migrate deploy --schema=./apps/backend/prisma/schema.prisma
 
 echo "ℹ️  Seeding the database..."
-docker compose run --rm backend_service_runner pnpm db:seed
+docker compose run --rm backend_service_runner npx prisma db seed --schema=./apps/backend/prisma/schema.prisma
 
 # Run Playwright E2E tests
 echo "ℹ️  Running Playwright E2E tests against the live environment..."
