@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
-import logger from '../services/logger';
 
 /**
  * Centralized Configuration Service
@@ -74,7 +73,7 @@ function readDockerSecret(secretName: string): string | undefined {
     }
     return undefined;
   } catch (error) {
-    logger.warn({ secretName, err: error }, 'Failed to read Docker secret');
+    console.warn(`Failed to read Docker secret ${secretName}:`, error);
     return undefined;
   }
 }
@@ -87,7 +86,7 @@ function loadConfigurationValues(): Record<string, string | undefined> {
   const isProduction = process.env['NODE_ENV'] === 'production';
 
   if (isProduction) {
-    logger.info('Loading configuration from Docker secrets (production mode)');
+    console.info('Loading configuration from Docker secrets (production mode)');
 
     // In production, read sensitive values from Docker secrets
     return {
@@ -115,7 +114,7 @@ function loadConfigurationValues(): Record<string, string | undefined> {
       PASSWORD_PEPPER: readDockerSecret('password_pepper'),
     };
   } else {
-    logger.info(
+    console.info(
       'Loading configuration from environment variables (development mode)'
     );
     // In development, use environment variables as before
@@ -134,32 +133,26 @@ function loadConfig(): Config {
     // Parse and validate configuration values
     const config = configSchema.parse(configValues);
 
-    logger.info(
-      {
-        nodeEnv: config.NODE_ENV,
-        port: config.PORT,
-        redisHost: config.REDIS_HOST,
-        redisPort: config.REDIS_PORT,
-        squareEnv: config.SQUARE_ENVIRONMENT,
-        qbEnv: config.QB_ENVIRONMENT,
-        workerConcurrency: config.WORKER_CONCURRENCY,
-      },
-      'Configuration loaded and validated successfully'
-    );
+    console.info('Configuration loaded and validated successfully:', {
+      nodeEnv: config.NODE_ENV,
+      port: config.PORT,
+      redisHost: config.REDIS_HOST,
+      redisPort: config.REDIS_PORT,
+      squareEnv: config.SQUARE_ENVIRONMENT,
+      qbEnv: config.QB_ENVIRONMENT,
+      workerConcurrency: config.WORKER_CONCURRENCY,
+    });
 
     return config;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      logger.error(
-        {
-          validationErrors: error.errors.map(err => ({
-            path: err.path.join('.'),
-            message: err.message,
-            code: err.code,
-          })),
-        },
-        'Configuration validation failed'
-      );
+      console.error('Configuration validation failed:', {
+        validationErrors: error.errors.map(err => ({
+          path: err.path.join('.'),
+          message: err.message,
+          code: err.code,
+        })),
+      });
 
       // Log specific missing or invalid environment variables
       const missingVars = error.errors
@@ -167,13 +160,15 @@ function loadConfig(): Config {
         .map(err => err.path.join('.'));
 
       if (missingVars.length > 0) {
-        logger.error({ missingVars }, 'Missing required environment variables');
+        console.error('Missing required environment variables:', {
+          missingVars,
+        });
       }
 
       throw new Error(`Configuration validation failed: ${error.message}`);
     }
 
-    logger.error({ err: error }, 'Unexpected error loading configuration');
+    console.error('Unexpected error loading configuration:', error);
     throw error;
   }
 }
@@ -197,9 +192,9 @@ function validateEnvironmentSpecificConfig(config: Config): void {
     });
 
     if (missingProdVars.length > 0) {
-      logger.error(
-        { missingProdVars },
-        'Production requires real API credentials, not test values'
+      console.error(
+        'Production requires real API credentials, not test values:',
+        { missingProdVars }
       );
       throw new Error(
         `Production environment missing real credentials: ${missingProdVars.join(
@@ -215,7 +210,7 @@ function validateEnvironmentSpecificConfig(config: Config): void {
       config.SQUARE_ENVIRONMENT === 'production' ||
       config.QB_ENVIRONMENT === 'production'
     ) {
-      logger.warn(
+      console.warn(
         '⚠️  Development environment using production API endpoints - proceed with caution!'
       );
     }

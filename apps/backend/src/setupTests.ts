@@ -70,6 +70,17 @@ process.env['DATABASE_URL'] =
   'postgresql://test:test@localhost:5432/test_db?schema=public';
 process.env['PORT'] = '3001';
 process.env['SQUARE_WEBHOOK_SIGNATURE_KEY'] = 'test-signature-key';
+process.env['SQUARE_ACCESS_TOKEN'] = 'test-square-token';
+process.env['SQUARE_APPLICATION_ID'] = 'test-app-id';
+process.env['SQUARE_ENVIRONMENT'] = 'sandbox';
+process.env['QB_ACCESS_TOKEN'] = 'test-qb-token';
+process.env['QB_REALM_ID'] = 'test-realm-123';
+process.env['QB_ENVIRONMENT'] = 'sandbox';
+process.env['PASSWORD_PEPPER'] = 'test-pepper-1234567890';
+process.env['REDIS_HOST'] = 'localhost';
+process.env['REDIS_PORT'] = '6379';
+process.env['REDIS_DB'] = '0';
+process.env['WORKER_CONCURRENCY'] = '5';
 
 // Global test timeout
 jest.setTimeout(10000);
