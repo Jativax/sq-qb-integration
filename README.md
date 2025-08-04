@@ -225,32 +225,61 @@ In production, sensitive credentials are managed using Docker Secrets instead of
 
 ### Production Deployment Commands
 
+#### Building and Publishing Docker Images
+
+Before deploying to production, you need to build and publish the Docker images:
+
+1. **Build the backend image**:
+   ```bash
+   cd apps/backend
+   docker build -t your-docker-registry/sq-qb-backend:latest .
+   docker push your-docker-registry/sq-qb-backend:latest
+   ```
+
+2. **Build the frontend image**:
+   ```bash
+   cd apps/frontend
+   docker build -t your-docker-registry/sq-qb-frontend:latest .
+   docker push your-docker-registry/sq-qb-frontend:latest
+   ```
+
+#### Deploying the Production Stack
+
 1. **Deploy with production configuration**:
 
    ```bash
-   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+   docker-compose -f docker-compose.prod.yml up -d
    ```
 
 2. **View production logs**:
 
    ```bash
-   docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
+   docker-compose -f docker-compose.prod.yml logs -f
    ```
 
 3. **Stop production deployment**:
    ```bash
-   docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
+   docker-compose -f docker-compose.prod.yml down
+   ```
+
+4. **Update a specific service**:
+   ```bash
+   # Update backend service with new image
+   docker-compose -f docker-compose.prod.yml pull backend
+   docker-compose -f docker-compose.prod.yml up -d backend
    ```
 
 ### Production Configuration Details
 
-The `docker-compose.prod.yml` file:
+The `docker-compose.prod.yml` file provides a complete production-ready stack:
 
-- **Extends** the base `docker-compose.yml` configuration
-- **Maps Docker secrets** to files in `/run/secrets/` inside containers
-- **Sets production environment variables** (NODE_ENV=production, etc.)
-- **Configures higher performance settings** (increased worker concurrency)
-- **Uses PgBouncer** for database connection pooling
+- **Database Services**: PostgreSQL with PgBouncer connection pooling
+- **Cache Service**: Redis with data persistence
+- **Backend Service**: Uses pre-built Docker image from registry with Docker secrets integration
+- **Frontend Service**: Nginx-served React app with optimized static asset delivery
+- **Security Features**: Docker secrets for credential management, non-root containers
+- **Performance Optimization**: Resource limits, health checks, and restart policies
+- **Networking**: Dedicated bridge network for service isolation
 
 ### Environment-Aware Configuration
 

@@ -1,24 +1,84 @@
-version: '3.8'
-
-# Production Docker Compose configuration
-# This file extends the base docker-compose.yml and adds Docker Secrets support
-# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-
 services:
-  backend:
+  db:
+    image: postgres:15
+    container_name: sq-qb-postgres-prod
+    restart: always
     environment:
-      - NODE_ENV=production
-      - PORT=3001
-      # Database connection through PgBouncer
-      - DATABASE_URL=postgresql://postgres:postgres@pgbouncer:6432/sq_qb_integration?pgbouncer=true
-      # Redis configuration
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_DB=0
-      # Non-sensitive environment configuration
-      - SQUARE_ENVIRONMENT=production
-      - QB_ENVIRONMENT=production
-      - WORKER_CONCURRENCY=10
+      POSTGRES_USER: ${POSTGRES_USER:-squser}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_DB: ${POSTGRES_DB:-sq_qb_integration}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    secrets:
+      - postgres_password
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-squser} -d ${POSTGRES_DB:-sq_qb_integration}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sq-qb-network
+
+  pgbouncer:
+    image: edoburu/pgbouncer:1.18.0
+    container_name: sq-qb-pgbouncer-prod
+    restart: always
+    depends_on:
+      - db
+    environment:
+      DB_USER: ${POSTGRES_USER:-squser}
+      DB_PASSWORD_FILE: /run/secrets/postgres_password
+    volumes:
+      - ./config/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini
+      - ./config/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt
+    secrets:
+      - postgres_password
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'pg_isready',
+          '-h',
+          'localhost',
+          '-p',
+          '6432',
+          '-U',
+          '${POSTGRES_USER:-squser}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sq-qb-network
+
+  redis:
+    image: redis:7
+    container_name: sq-qb-redis-prod
+    restart: always
+    volumes:
+      - redisdata:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - sq-qb-network
+
+  backend:
+    image: your-docker-registry/sq-qb-backend:latest
+    container_name: sq-qb-backend-prod
+    restart: always
+    depends_on:
+      - db
+      - redis
+      - pgbouncer
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-squser}@pgbouncer:6432/${POSTGRES_DB:-sq_qb_integration}
+      REDIS_URL: redis://redis:6379
     secrets:
       - postgres_password
       - password_pepper
@@ -27,17 +87,60 @@ services:
       - square_webhook_signature_key
       - qb_access_token
       - qb_realm_id
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3001/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - sq-qb-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  frontend:
+    image: your-docker-registry/sq-qb-frontend:latest
+    container_name: sq-qb-frontend-prod
+    restart: always
     depends_on:
-      - pgbouncer
-      - redis
+      - backend
+    ports:
+      - "80:80"
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:80/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - sq-qb-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.25'
+          memory: 64M
 
-  pgbouncer:
-    secrets:
-      - postgres_password
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
 
-  db:
-    secrets:
-      - postgres_password
+networks:
+  sq-qb-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
 
 secrets:
   postgres_password:
