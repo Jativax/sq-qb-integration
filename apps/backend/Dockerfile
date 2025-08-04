@@ -18,16 +18,15 @@ COPY apps/backend/package.json ./apps/backend/
 COPY apps/backend/prisma ./apps/backend/prisma
 
 # Install production dependencies only with frozen lockfile
-# Disable Husky git hooks in Docker build environment
-ENV HUSKY=0
-RUN pnpm install --prod --frozen-lockfile
+# Skip lifecycle scripts (including Husky) in Docker build environment
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts
+
+# Generate Prisma client (needed since we skipped scripts above)
+RUN pnpm --filter backend exec prisma generate
 
 # Copy the rest of the backend source code
 COPY apps/backend/src ./apps/backend/src
 COPY apps/backend/tsconfig.json ./apps/backend/
-
-# Generate Prisma client
-RUN pnpm --filter backend exec prisma generate
 
 # Build the TypeScript project
 RUN pnpm --filter backend build
