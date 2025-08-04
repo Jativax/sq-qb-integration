@@ -24,8 +24,11 @@ Edit `.env` with your actual values:
 POSTGRES_USER=your_username
 POSTGRES_PASSWORD=your_secure_password
 POSTGRES_DB=sq_qb_integration
-DATABASE_URL=postgresql://your_username:your_secure_password@localhost:5432/sq_qb_integration?schema=public
+DATABASE_URL=postgresql://your_username:your_secure_password@localhost:6432/sq_qb_integration?pgbouncer=true
+PASSWORD_PEPPER=your_long_and_secret_pepper_value_at_least_16_characters
 ```
+
+**Note**: The DATABASE_URL uses port `6432` (PgBouncer) instead of the direct PostgreSQL port `5432` for connection pooling. The `PASSWORD_PEPPER` is required for enhanced security.
 
 ### 2. Install Dependencies
 
@@ -43,12 +46,17 @@ npx pnpm docker:up
 
 ### 4. Setup Database
 
-Generate Prisma client and run initial migration:
+Generate Prisma client, run initial migration, and seed with test users:
 
 ```bash
 npx pnpm db:generate
 npx pnpm db:migrate
+npx pnpm db:seed
 ```
+
+**Test Credentials** (seeded automatically):
+- **Admin**: `admin@sqqb.com` / `admin123` (full access including job retry)
+- **Viewer**: `viewer@sqqb.com` / `viewer123` (read-only access to all data)
 
 ### 5. Start Development Servers
 
@@ -259,7 +267,7 @@ sq-qb-integration/
 │       │   ├── services/      # API client logic
 │       │   │   └── api.ts     # Axios-based API client
 │       │   ├── providers/     # React context providers
-│       │   │   └── QueryProvider.tsx # React Query client provider
+│       │   │   └── QueryProvider.tsx # TanStack Query client provider
 │       │   ├── App.tsx        # Main application component
 │       │   ├── main.tsx       # Application entry point
 │       │   └── index.css      # Global styles with Tailwind
@@ -292,7 +300,7 @@ The workspace is configured in `pnpm-workspace.yaml`:
 ```yaml
 packages:
   - 'apps/*' # Backend and Frontend applications
-  - 'packages/*' # Shared packages (future)
+  - 'packages/*' # Shared packages and tooling (e.g., E2E tests)
 ```
 
 ## Development Services
@@ -400,7 +408,7 @@ The application includes a modern **React TypeScript administrative dashboard** 
 #### **Professional UI/UX**
 
 - **Responsive Design** - Works seamlessly on desktop and mobile devices
-- **Sidebar Navigation** - Easy access to Dashboard, Analytics, Queue Monitor, and Settings
+- **Sidebar Navigation** - Easy access to Dashboard, Analytics, Failed Jobs, Audit Trail, and Settings
 - **Real-Time Updates** - Automatic data refresh every 15-30 seconds
 - **Loading States** - Smooth user experience with proper loading indicators
 - **Error Handling** - Graceful error states with user-friendly messages
@@ -426,32 +434,33 @@ The application includes a modern **React TypeScript administrative dashboard** 
 - **Recent Activity** - Latest webhook events and processing status
 - **System Health** - Backend connectivity and service status
 
-#### **Analytics** (`/analytics`) - _Coming Soon_
+#### **Analytics** (`/analytics`)
 
-- Advanced metrics visualization
-- Historical data analysis
-- Performance trend analysis
-
-#### **Queue Monitor** (`/queue`) - _Coming Soon_
-
-- Detailed queue management interface
-- Job inspection and retry capabilities
-- Queue performance metrics
+- **Real-time Performance Dashboard** - Live visualization of key performance indicators with 30-second auto-refresh
+- **Interactive Data Visualization** - Professional charts using Recharts library (stat cards, bar charts, line charts, pie charts)
+- **Comprehensive KPIs** - Job processing metrics, API performance monitoring, system health statistics, and business intelligence
+- **Mobile-Responsive Design** - Adaptive layouts optimized for all screen sizes
 
 #### **Failed Jobs** (`/failed-jobs`)
 
-- **Comprehensive Job Monitoring** - View all jobs that have failed processing
-- **Detailed Error Information** - Job ID, order data summary, failure reason, and attempt count
-- **One-Click Retry** - Retry individual failed jobs with automatic list refresh
-- **Real-Time Updates** - Automatic refresh every 15 seconds for live monitoring
-- **Responsive Table Design** - Mobile-friendly interface with proper loading states
-- **Error Handling** - Graceful error states with retry mechanisms
+- **Comprehensive Job Monitoring** - View all jobs that have failed processing with detailed error information
+- **Administrative Controls** - One-click retry functionality for failed jobs (ADMIN role required)
+- **Real-time Updates** - Automatic refresh every 15 seconds for live monitoring
+- **Detailed Error Analysis** - Job ID, order data summary, failure reason, and attempt count tracking
+
+#### **Audit Trail** (`/audit-trail`)
+
+- **Comprehensive Activity Logging** - Database-backed audit trail of all system and user actions
+- **Advanced Filtering** - Filter by action type, user, or time period for detailed analysis
+- **Statistical Insights** - Audit log statistics including most common actions and active users
+- **Role-Based Access** - Available to users with VIEWER role or higher
 
 #### **Settings** (`/settings`) - _Coming Soon_
 
-- Application configuration
-- Integration settings management
-- User preferences
+- **Application Configuration** - System-wide settings and preferences management
+- **Integration Settings** - Square and QuickBooks API configuration interface
+- **User Management** - User account settings and role management (ADMIN only)
+- **Mapping Configuration** - Customizable data transformation rules and strategies
 
 ### Frontend Development
 
@@ -506,7 +515,7 @@ const { data: recentWebhooks } = useRecentWebhooks();
 
 #### **State Management**
 
-- **React Query** for server state management and caching
+- **TanStack Query** for server state management and caching
 - **Automatic background updates** with configurable intervals
 - **Optimistic updates** and error recovery
 - **DevTools integration** for debugging API calls
@@ -929,7 +938,7 @@ Backend Analytics API
   ↓ /api/v1/analytics/metrics
 API Service (getAnalyticsMetrics)
   ↓ TypeScript interfaces
-React Query Hook (useAnalyticsMetrics)
+TanStack Query Hook (useAnalyticsMetrics)
   ↓ Caching & auto-refresh
 Analytics Dashboard Component
   ↓ Data distribution
@@ -955,7 +964,7 @@ Interactive Visualizations
 
 #### **Performance Features**
 
-- **React Query caching** reduces API calls
+- **TanStack Query caching** reduces API calls
 - **Background updates** don't block user interaction
 - **Error boundaries** prevent application crashes
 - **Loading skeletons** for smooth user experience
@@ -1712,7 +1721,7 @@ npx pnpm dev:all
 
 - **Background Processing**: Non-blocking webhook responses
 - **Database Indexing**: Optimized queries with proper indexing
-- **Frontend Caching**: React Query manages data freshness and caching
+- **Frontend Caching**: TanStack Query manages data freshness and caching
 - **Metrics Collection**: Prometheus monitoring for performance insights
 
 ### **Development Principles**
@@ -1740,7 +1749,7 @@ npx pnpm dev:all
 
 ---
 
-## 🎉 **Latest Release: v2.0 - Analytics Dashboard & RBAC**
+## 🎉 **Latest Release: v1.0.0 - Production-Ready Enterprise Integration**
 
 ### **Major Features Added**
 
@@ -1762,11 +1771,18 @@ npx pnpm dev:all
 - **Audit Trail System**: Comprehensive logging of all user and system actions
 - **Database-Backed Sessions**: Secure token storage with cleanup
 
-#### ✅ **Production-Ready Features**
+#### ✅ **Production Infrastructure & Security**
+- **Docker Secrets Management**: Secure credential handling for production deployments
+- **PgBouncer Connection Pooling**: Scalable database connection management
+- **Password Pepper Security**: Enhanced password protection with server-side peppering
+- **Webhook Security Hardening**: Raw body HMAC validation before JSON parsing
+- **Financial Reconciliation**: Automated hourly cron job ensuring data integrity
+
+#### ✅ **Enterprise Architecture**
 - **Centralized Configuration**: Zod-validated environment variables with type safety
-- **Structured Logging**: Pino logger with development/production configurations
+- **Structured Logging**: Pino logger with development/production configurations  
 - **Prisma Singleton**: Optimized database connection management
-- **Error Boundaries**: Graceful error handling throughout the application
+- **Advanced Mapping Engine**: Enhanced financial data transformation with discounts, tips, and surcharges
 
 ### **Technical Improvements**
 
@@ -1789,4 +1805,4 @@ This release represents a **complete enterprise-grade solution** with:
 
 **Built with ❤️ for seamless Square-QuickBooks integration**
 
-*Last Updated: December 2024 - v2.0 with Complete Analytics Dashboard and Enterprise RBAC*
+*Last Updated: January 2025 - v1.0.0 Production-Ready Enterprise Integration with Full Security & Infrastructure*
