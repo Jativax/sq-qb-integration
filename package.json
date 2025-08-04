@@ -31,7 +31,8 @@
     "db:reset": "pnpm --filter backend prisma:reset",
     "test": "pnpm --filter backend test",
     "test:watch": "pnpm --filter backend test:watch",
-    "test:coverage": "pnpm --filter backend test:coverage"
+    "test:coverage": "pnpm --filter backend test:coverage",
+    "ci:checks": "bash run-ci-checks.sh"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.0.0",
