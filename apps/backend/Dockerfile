@@ -38,17 +38,26 @@ FROM node:18-alpine AS production
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
+# Install pnpm globally (needed for CI database operations)
+RUN npm install -g pnpm@8.6.12
+
 # Set working directory
 WORKDIR /app
 
-# Copy node_modules from builder stage
+# Copy node_modules from builder stage (includes Prisma CLI)
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# Copy workspace structure for pnpm commands
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=builder --chown=nextjs:nodejs /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=builder --chown=nextjs:nodejs /app/apps/backend/package.json ./apps/backend/package.json
 
 # Copy the compiled JavaScript from builder stage
 COPY --from=builder --chown=nextjs:nodejs /app/apps/backend/dist ./dist
 
-# Copy prisma directory from builder stage (needed for schema at runtime)
-COPY --from=builder --chown=nextjs:nodejs /app/apps/backend/prisma ./prisma
+# Copy prisma directory from builder stage (needed for schema at runtime and migrations)
+COPY --from=builder --chown=nextjs:nodejs /app/apps/backend/prisma ./apps/backend/prisma
 
 # Switch to non-root user
 USER nextjs
