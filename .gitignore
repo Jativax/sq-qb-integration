@@ -15,6 +15,9 @@ build/
 .env.production
 .env.test
 
+# Allow CI environment file to be committed
+!.env.ci
+
 # Docker secrets (production)
 secrets/
 

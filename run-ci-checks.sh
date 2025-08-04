@@ -99,13 +99,13 @@ print_info "Waiting for services to initialize (15 seconds)..."
 sleep 15
 
 print_info "Applying database migrations..."
-npx pnpm db:migrate
+npx dotenv -e .env.ci -- npx pnpm db:migrate
 
 print_info "Seeding database with test data..."
-npx pnpm db:seed
+npx dotenv -e .env.ci -- npx pnpm db:seed
 
 print_info "Starting backend application in background..."
-npx pnpm dev > backend.log 2>&1 &
+npx dotenv -e .env.ci -- npx pnpm dev > backend.log 2>&1 &
 BACKEND_PID=$!
 
 print_info "Starting frontend application in background..."
@@ -130,7 +130,7 @@ curl -f http://localhost:5173 || {
 }
 
 print_info "Running Playwright E2E tests..."
-npx pnpm test:e2e
+npx dotenv -e .env.ci -- npx pnpm test:e2e
 print_success "All E2E tests passed"
 
 # STEP 6: Final Validation Summary
