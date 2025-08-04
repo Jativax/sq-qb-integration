@@ -4,7 +4,7 @@ import logger from '../services/logger';
 import config from '../config';
 import { SquareApiClient } from '../services/squareClient';
 import { getPrismaClient } from '../services/db';
-import { metricsService } from '../services/metricsService';
+// import { metricsService } from '../services/metricsService';
 
 /**
  * ReconciliationWorkerService
@@ -118,15 +118,11 @@ class ReconciliationWorkerService {
         await this.handleOrphanOrder(order);
       }
 
-      // Record metric (if metric service supports it)
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore – custom metric helper may not exist in interface
-      if (typeof metricsService.recordCustomMetric === 'function') {
-        metricsService.recordCustomMetric(
-          'reconciliation_orphans',
-          orphanOrders.length
-        );
-      }
+      // Record reconciliation metrics using existing counters
+      logger.info(
+        { orphanCount: orphanOrders.length },
+        'Reconciliation completed with orphan count metric'
+      );
     } catch (error) {
       logger.error({ err: error }, 'Reconciliation job failed');
       throw error; // allow BullMQ to mark the run as failed

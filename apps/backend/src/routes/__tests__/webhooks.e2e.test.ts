@@ -86,6 +86,7 @@ describe('Webhooks E2E Integration Tests', () => {
    */
   const generateValidSignature = (): string => {
     // Return a special test signature that we'll recognize in our middleware
+    // In real implementation, this would generate a HMAC signature using the requestBody
     return 'VALID_TEST_SIGNATURE';
   };
 

@@ -22,7 +22,7 @@ export function metricsMiddleware(
   const originalEnd = res.end;
 
   // Override res.end to capture metrics when response completes
-  res.end = function (chunk?: unknown, encoding?: string): Response {
+  res.end = function (...args: unknown[]): Response {
     // Calculate request duration in seconds
     const duration = (Date.now() - startTime) / 1000;
 
@@ -41,8 +41,10 @@ export function metricsMiddleware(
       userAgent
     );
 
-    // Call original res.end
-    return originalEnd.call(this, chunk, encoding);
+    // Call original res.end with all arguments
+    return (
+      originalEnd as (this: Response, ...args: unknown[]) => Response
+    ).apply(this, args);
   };
 
   next();
@@ -57,7 +59,7 @@ export function enhancedMetricsMiddleware(routeName?: string) {
     const startTime = Date.now();
     const originalEnd = res.end;
 
-    res.end = function (chunk?: unknown, encoding?: string): Response {
+    res.end = function (...args: unknown[]): Response {
       const duration = (Date.now() - startTime) / 1000;
 
       // Use provided route name or fallback to detected route
@@ -72,7 +74,9 @@ export function enhancedMetricsMiddleware(routeName?: string) {
         userAgent
       );
 
-      return originalEnd.call(this, chunk, encoding);
+      return (
+        originalEnd as (this: Response, ...args: unknown[]) => Response
+      ).apply(this, args);
     };
 
     next();
@@ -87,7 +91,7 @@ export function webhookMetricsMiddleware(webhookSource: string) {
     const startTime = Date.now();
     const originalEnd = res.end;
 
-    res.end = function (chunk?: unknown, encoding?: string): Response {
+    res.end = function (...args: unknown[]): Response {
       const duration = (Date.now() - startTime) / 1000;
       const route = req.route?.path || req.path || 'unknown';
       const userAgent = req.get('User-Agent') || 'unknown';
@@ -120,7 +124,9 @@ export function webhookMetricsMiddleware(webhookSource: string) {
         webhookStatus
       );
 
-      return originalEnd.call(this, chunk, encoding);
+      return (
+        originalEnd as (this: Response, ...args: unknown[]) => Response
+      ).apply(this, args);
     };
 
     next();

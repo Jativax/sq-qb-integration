@@ -84,7 +84,7 @@ function readDockerSecret(secretName: string): string | undefined {
  * @returns Configuration object with all values populated
  */
 function loadConfigurationValues(): Record<string, string | undefined> {
-  const isProduction = process.env.NODE_ENV === 'production';
+  const isProduction = process.env['NODE_ENV'] === 'production';
 
   if (isProduction) {
     logger.info('Loading configuration from Docker secrets (production mode)');
@@ -92,17 +92,17 @@ function loadConfigurationValues(): Record<string, string | undefined> {
     // In production, read sensitive values from Docker secrets
     return {
       // Keep non-sensitive values from environment
-      NODE_ENV: process.env.NODE_ENV,
-      PORT: process.env.PORT,
-      DATABASE_URL: process.env.DATABASE_URL,
-      REDIS_HOST: process.env.REDIS_HOST,
-      REDIS_PORT: process.env.REDIS_PORT,
-      REDIS_PASSWORD: process.env.REDIS_PASSWORD,
-      REDIS_DB: process.env.REDIS_DB,
-      SQUARE_ENVIRONMENT: process.env.SQUARE_ENVIRONMENT,
-      QB_ENVIRONMENT: process.env.QB_ENVIRONMENT,
-      WORKER_CONCURRENCY: process.env.WORKER_CONCURRENCY,
-      FORCE_QB_FAILURE: process.env.FORCE_QB_FAILURE,
+      NODE_ENV: process.env['NODE_ENV'],
+      PORT: process.env['PORT'],
+      DATABASE_URL: process.env['DATABASE_URL'],
+      REDIS_HOST: process.env['REDIS_HOST'],
+      REDIS_PORT: process.env['REDIS_PORT'],
+      REDIS_PASSWORD: process.env['REDIS_PASSWORD'],
+      REDIS_DB: process.env['REDIS_DB'],
+      SQUARE_ENVIRONMENT: process.env['SQUARE_ENVIRONMENT'],
+      QB_ENVIRONMENT: process.env['QB_ENVIRONMENT'],
+      WORKER_CONCURRENCY: process.env['WORKER_CONCURRENCY'],
+      FORCE_QB_FAILURE: process.env['FORCE_QB_FAILURE'],
 
       // Read sensitive values from Docker secrets
       SQUARE_WEBHOOK_SIGNATURE_KEY: readDockerSecret(

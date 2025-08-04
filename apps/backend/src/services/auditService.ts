@@ -17,11 +17,10 @@ export interface AuditEventParams {
 export interface AuditLogEntry {
   id: string;
   action: string;
-  userId?: string;
-  details?: Record<string, unknown>;
+  userId: string | null;
+  details: Record<string, unknown>;
   timestamp: Date;
   createdAt: Date;
-  updatedAt: Date;
 }
 
 /**
@@ -57,7 +56,7 @@ export class AuditService {
         data: {
           action,
           userId: userId || null,
-          details: details || {},
+          details: (details || {}) as Record<string, unknown>,
         },
       });
 

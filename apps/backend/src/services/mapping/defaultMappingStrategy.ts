@@ -15,6 +15,7 @@ interface SquareLineItem {
   base_price_money?: { amount?: number };
   variation_name?: string;
   modifiers?: SquareModifier[];
+  catalog_object_id?: string;
 }
 
 // Interface for Square modifier data
@@ -79,14 +80,14 @@ export class DefaultMappingStrategy implements MappingStrategy {
       const salesReceiptData: QBSalesReceiptData = {
         CustomerRef: {
           value: this.getCustomerId(order, context),
-          name: this.getCustomerName(order, context),
+          name: this.getCustomerName(order),
         },
         Line: lineItems,
         TotalAmt: totalAmountDollars,
         PaymentRefNum: this.generatePaymentReference(order),
         PaymentMethodRef: {
           value: context?.options?.defaultPaymentMethodId || '1',
-          name: this.getPaymentMethodName(order, context),
+          name: this.getPaymentMethodName(order),
         },
       };
 
@@ -218,7 +219,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
     // Process regular line items
     if (order.line_items && order.line_items.length > 0) {
       for (const item of order.line_items) {
-        const transformedItem = this.transformLineItem(item, context);
+        const transformedItem = this.transformLineItem(item);
         if (transformedItem) {
           lineItems.push(transformedItem);
         }
@@ -226,11 +227,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
         // Process modifiers as separate line items
         if (item.modifiers && item.modifiers.length > 0) {
           for (const modifier of item.modifiers) {
-            const transformedModifier = this.transformModifier(
-              modifier,
-              item,
-              context
-            );
+            const transformedModifier = this.transformModifier(modifier, item);
             if (transformedModifier) {
               lineItems.push(transformedModifier);
             }
@@ -242,7 +239,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
     // Add tax line items if configured
     if (context?.options?.includeTaxAsLineItems && order.taxes) {
       for (const tax of order.taxes) {
-        const transformedTax = this.transformTaxAsLineItem(tax, context);
+        const transformedTax = this.transformTaxAsLineItem(tax);
         if (transformedTax) {
           lineItems.push(transformedTax);
         }
@@ -252,10 +249,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
     // Always add discount line items (discounts should always be visible)
     if (order.discounts && order.discounts.length > 0) {
       for (const discount of order.discounts) {
-        const transformedDiscount = this.transformDiscountAsLineItem(
-          discount,
-          context
-        );
+        const transformedDiscount = this.transformDiscountAsLineItem(discount);
         if (transformedDiscount) {
           lineItems.push(transformedDiscount);
         }

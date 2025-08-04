@@ -156,7 +156,7 @@ export class QueueService {
         {
           jobId: 'financial-reconciliation-cron',
           repeat: {
-            cron: cronExpression,
+            pattern: cronExpression,
             tz: 'UTC',
           },
         }

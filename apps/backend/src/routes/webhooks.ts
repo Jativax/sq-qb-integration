@@ -8,7 +8,9 @@ import { QueueService } from '../services/queueService';
 // Remove the non-existent import - webhook verification is handled in securityService
 import { webhookMetricsMiddleware } from '../middleware/metricsMiddleware';
 import logger from '../services/logger';
-import securityService from '../services/securityService';
+import { SecurityService } from '../services/securityService';
+
+const securityService = new SecurityService();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const router: any = express.Router();
