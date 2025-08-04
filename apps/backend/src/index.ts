@@ -8,12 +8,14 @@ import authRoutes from './routes/auth';
 import analyticsRoutes from './routes/analytics';
 import testRoutes from './routes/test';
 import { metricsService } from './services/metricsService';
+import { QueueService } from './services/queueService';
 import { metricsMiddleware } from './middleware/metricsMiddleware';
 import logger from './services/logger';
 import { getPrismaClient, disconnectPrisma } from './services/db';
 import config from './config';
 // Import the worker to start background job processing
 import './workers/orderWorker';
+import './workers/reconciliationWorker';
 
 const app = express();
 const prisma = getPrismaClient();
@@ -71,6 +73,10 @@ async function startServer(): Promise<void> {
     // Test database connection
     await prisma.$connect();
     logger.info('Database connected successfully');
+
+    // Schedule financial reconciliation cron job (hourly by default)
+    const queueService = new QueueService();
+    await queueService.scheduleReconciliationJob();
 
     // Log available models
     logger.info(

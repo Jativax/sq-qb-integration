@@ -5,6 +5,7 @@ import config from '../config';
 
 export class QueueService {
   private queue: Queue;
+  private systemQueue: Queue;
 
   constructor() {
     // Initialize BullMQ queue with Redis connection
@@ -29,6 +30,19 @@ export class QueueService {
     });
 
     logger.info('QueueService initialized with Redis connection');
+
+    // Initialize separate system-jobs queue for scheduled/maintenance tasks
+    this.systemQueue = new Queue('system-jobs', {
+      connection: {
+        host: config.REDIS_HOST,
+        port: config.REDIS_PORT,
+        ...(config.REDIS_PASSWORD && {
+          password: config.REDIS_PASSWORD,
+        }),
+        db: config.REDIS_DB,
+      },
+    });
+    logger.info('System jobs queue initialized');
   }
 
   /**
@@ -129,6 +143,28 @@ export class QueueService {
    */
   getQueue() {
     return this.queue;
+  }
+
+  /**
+   * Schedule the repeatable financial reconciliation job (default: hourly)
+   */
+  async scheduleReconciliationJob(cronExpression: string = '0 * * * *') {
+    try {
+      await this.systemQueue.add(
+        'financial-reconciliation',
+        {},
+        {
+          jobId: 'financial-reconciliation-cron',
+          repeat: {
+            cron: cronExpression,
+            tz: 'UTC',
+          },
+        }
+      );
+      logger.info({ cronExpression }, 'Scheduled financial reconciliation cron job');
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to schedule reconciliation cron job');
+    }
   }
 
   /**
