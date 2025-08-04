@@ -1,87 +1,93 @@
+version: '3.8'
+
 services:
+  # Main application database
   db:
-    image: postgres:15
+    image: postgres:15-alpine
     container_name: sq-qb-postgres
-    restart: always
-    ports:
-      - '5432:5432'
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+    restart: unless-stopped
     volumes:
       - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  pgbouncer:
-    image: edoburu/pgbouncer:1.18.0
-    container_name: sq-qb-pgbouncer
-    depends_on:
-      - db
     environment:
-      DB_USER: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-sq_qb_integration}
+      POSTGRES_USER: ${POSTGRES_USER:-sq_qb_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your_secure_password}
     ports:
-      - '6432:6432'
-    volumes:
-      - ./config/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini
-      - ./config/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt
+      - "5432:5432"
+    networks:
+      - sq-qb-network
     healthcheck:
-      test:
-        [
-          'CMD',
-          'pg_isready',
-          '-h',
-          'localhost',
-          '-p',
-          '6432',
-          '-U',
-          '${POSTGRES_USER}',
-        ]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sq_qb_user} -d ${POSTGRES_DB:-sq_qb_integration}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # In-memory store for BullMQ and caching
   redis:
-    image: redis:7
+    image: redis:7-alpine
     container_name: sq-qb-redis
-    restart: always
-    ports:
-      - '6379:6379'
+    restart: unless-stopped
     volumes:
       - redisdata:/data
-    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    networks:
+      - sq-qb-network
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
-      timeout: 3s
+      timeout: 5s
       retries: 5
 
+  # PostgreSQL connection pooler
+  pgbouncer:
+    image: edoburu/pgbouncer:1.21.0
+    container_name: sq-qb-pgbouncer
+    restart: unless-stopped
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER:-sq_qb_user}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-your_secure_password}
+      - DB_NAME=${POSTGRES_DB:-sq_qb_integration}
+      - POOL_MODE=transaction
+      - MAX_CLIENT_CONN=100
+      - DEFAULT_POOL_SIZE=20
+    ports:
+      - "6432:6432"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sq-qb-network
+
+  # New service for running one-off commands like migrations and seeding
   backend_service_runner:
     build:
       context: .
       dockerfile: ./apps/backend/Dockerfile
     container_name: sq-qb-backend-runner
+    # This service is not meant to run continuously; it's a template for `docker compose run`.
+    command: sleep infinity
+    volumes:
+      - .:/app
     depends_on:
-      - pgbouncer
-    command: tail -f /dev/null
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
-      DATABASE_URL: 'postgresql://sq_qb_user:your_secure_password@pgbouncer:6432/sq_qb_integration?pgbouncer=true'
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-    profiles:
-      - ci
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-sq_qb_user}:${POSTGRES_PASSWORD:-your_secure_password}@db:5432/${POSTGRES_DB:-sq_qb_integration}?schema=public
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NODE_ENV=development
+    networks:
+      - sq-qb-network
 
 volumes:
   pgdata:
-    driver: local
   redisdata:
-    driver: local
 
 networks:
-  default:
-    name: sq-qb-network
+  sq-qb-network:
+    driver: bridge
