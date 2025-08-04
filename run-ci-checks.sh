@@ -65,6 +65,12 @@ print_info "Running ESLint on frontend and backend code..."
 npx pnpm lint
 print_success "No linting errors found"
 
+# STEP 2.5: Generating Prisma Client
+print_step "2.5" "Generating Prisma Client"
+print_info "Generating Prisma client and types..."
+npx pnpm --filter backend exec prisma generate
+print_success "Prisma client generated"
+
 # STEP 3: TypeScript Compilation Check
 print_step "3" "TypeScript Compilation Check"
 
