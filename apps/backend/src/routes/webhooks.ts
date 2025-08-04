@@ -55,6 +55,7 @@ router.post(
         res.status(401).json({
           error: 'Unauthorized',
           message: 'Invalid webhook signature',
+          code: 'INVALID_SIGNATURE',
         });
         return;
       }

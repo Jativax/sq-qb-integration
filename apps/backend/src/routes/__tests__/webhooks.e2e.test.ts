@@ -1,7 +1,6 @@
 import request from 'supertest';
 import nock from 'nock';
 import { Express } from 'express';
-// import crypto from 'crypto'; // Unused import removed
 
 // We'll need to create a separate app instance for testing
 // since the main index.ts file starts the server
@@ -81,12 +80,11 @@ describe('Webhooks E2E Integration Tests', () => {
   });
 
   /**
-   * Helper function to generate a valid Square webhook signature
-   * Note: For testing, we'll use a middleware override to skip signature validation for valid test scenarios
+   * Helper function to generate a valid Square webhook signature for tests
+   * Uses a special test signature that is recognized by SecurityService in test mode
    */
   const generateValidSignature = (): string => {
-    // Return a special test signature that we'll recognize in our middleware
-    // In real implementation, this would generate a HMAC signature using the requestBody
+    // In test environment, SecurityService recognizes this special signature
     return 'VALID_TEST_SIGNATURE';
   };
 
