@@ -1,4 +1,3 @@
-import React from 'react';
 import { useAnalyticsMetrics } from '../hooks/useApi';
 import { StatCardGrid } from '../components/analytics/StatCardGrid';
 import { JobsHistoryChart } from '../components/analytics/JobsHistoryChart';

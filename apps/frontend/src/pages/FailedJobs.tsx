@@ -1,4 +1,3 @@
-import React from 'react';
 import { useFailedJobs, useRetryJob } from '../hooks/useApi';
 import { useAuth } from '../hooks/useAuth';
 import type { FailedJob } from '../services/api';
