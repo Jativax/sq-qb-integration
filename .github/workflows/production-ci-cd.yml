@@ -115,7 +115,7 @@ jobs:
           echo "curl -O 'https://github.com/${{ github.repository }}/releases/download/artifacts/docker-compose-prod-${{ github.sha }}.yml'" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "# Deploy to production" >> $GITHUB_STEP_SUMMARY
-          echo "docker-compose -f docker-compose-prod-${{ github.sha }}.yml up -d" >> $GITHUB_STEP_SUMMARY
+                      echo "docker compose -f docker-compose-prod-${{ github.sha }}.yml up -d" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Commit Details" >> $GITHUB_STEP_SUMMARY

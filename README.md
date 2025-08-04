@@ -314,26 +314,26 @@ Before deploying to production, you need to build and publish the Docker images:
 1. **Deploy with production configuration**:
 
    ```bash
-   docker-compose -f docker-compose.prod.yml up -d
+   docker compose -f docker-compose.prod.yml up -d
    ```
 
 2. **View production logs**:
 
    ```bash
-   docker-compose -f docker-compose.prod.yml logs -f
+   docker compose -f docker-compose.prod.yml logs -f
    ```
 
 3. **Stop production deployment**:
 
    ```bash
-   docker-compose -f docker-compose.prod.yml down
+   docker compose -f docker-compose.prod.yml down
    ```
 
 4. **Update a specific service**:
    ```bash
    # Update backend service with new image
-   docker-compose -f docker-compose.prod.yml pull backend
-   docker-compose -f docker-compose.prod.yml up -d backend
+   docker compose -f docker-compose.prod.yml pull backend
+   docker compose -f docker-compose.prod.yml up -d backend
    ```
 
 ### Production Configuration Details
