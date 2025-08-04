@@ -18,6 +18,8 @@ COPY apps/backend/package.json ./apps/backend/
 COPY apps/backend/prisma ./apps/backend/prisma
 
 # Install production dependencies only with frozen lockfile
+# Disable Husky git hooks in Docker build environment
+ENV HUSKY=0
 RUN pnpm install --prod --frozen-lockfile
 
 # Copy the rest of the backend source code
