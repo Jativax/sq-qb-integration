@@ -61,6 +61,19 @@ services:
       timeout: 3s
       retries: 5
 
+  backend_service_runner:
+    build: ./apps/backend
+    container_name: sq-qb-backend-runner
+    depends_on:
+      - pgbouncer
+    command: tail -f /dev/null
+    environment:
+      DATABASE_URL: 'postgresql://sq_qb_user:your_secure_password@pgbouncer:6432/sq_qb_integration?pgbouncer=true'
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    profiles:
+      - ci
+
 volumes:
   pgdata:
     driver: local

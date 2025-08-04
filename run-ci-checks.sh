@@ -99,10 +99,10 @@ print_info "Waiting for services to initialize (15 seconds)..."
 sleep 15
 
 print_info "Applying database migrations..."
-npx dotenv -e .env.ci -- npx pnpm db:migrate
+docker compose run --rm backend_service_runner pnpm prisma migrate deploy
 
 print_info "Seeding database with test data..."
-npx dotenv -e .env.ci -- npx pnpm db:seed
+docker compose run --rm backend_service_runner pnpm prisma db seed
 
 print_info "Starting backend application in background..."
 npx dotenv -e .env.ci -- npx pnpm dev > backend.log 2>&1 &
