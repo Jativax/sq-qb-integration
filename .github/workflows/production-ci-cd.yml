@@ -94,7 +94,7 @@ jobs:
       
       # Step 10: Upload updated docker-compose file as artifact
       - name: Upload production compose file
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: docker-compose-prod-${{ github.sha }}
           path: docker-compose.prod.yml
