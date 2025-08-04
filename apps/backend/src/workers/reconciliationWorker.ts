@@ -97,7 +97,10 @@ class ReconciliationWorkerService {
       });
 
       const receiptOrderIds = new Set(
-        receipts.map(r => r.squareOrder.squareOrderId)
+        receipts.map(
+          (r: { squareOrder: { squareOrderId: string } }) =>
+            r.squareOrder.squareOrderId
+        )
       );
 
       // 3) Identify orphan orders

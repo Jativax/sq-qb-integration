@@ -41,9 +41,29 @@ export function rbacMiddleware(requiredRole: UserRole) {
         return;
       }
 
-      const userRole = req.user.role;
+      const userRole = req.user.role as UserRole;
       const userRoleLevel = ROLE_HIERARCHY[userRole];
       const requiredRoleLevel = ROLE_HIERARCHY[requiredRole];
+
+      // Guard clause for undefined role levels
+      if (userRoleLevel === undefined || requiredRoleLevel === undefined) {
+        logger.error(
+          {
+            userRole,
+            requiredRole,
+            path: req.path,
+            method: req.method,
+          },
+          'Invalid role configuration detected'
+        );
+
+        res.status(500).json({
+          error: 'Internal Server Error',
+          message: 'Role configuration error',
+          code: 'INVALID_ROLE_CONFIG',
+        });
+        return;
+      }
 
       // Check if user's role meets the minimum requirement
       if (userRoleLevel < requiredRoleLevel) {
@@ -120,6 +140,12 @@ export const requireViewer = rbacMiddleware(UserRole.VIEWER);
 export function hasRole(userRole: UserRole, requiredRole: UserRole): boolean {
   const userRoleLevel = ROLE_HIERARCHY[userRole];
   const requiredRoleLevel = ROLE_HIERARCHY[requiredRole];
+
+  // Guard clause for undefined role levels
+  if (userRoleLevel === undefined || requiredRoleLevel === undefined) {
+    return false;
+  }
+
   return userRoleLevel >= requiredRoleLevel;
 }
 
@@ -139,6 +165,12 @@ export function isAdmin(userRole: UserRole): boolean {
  */
 export function getAccessibleRoles(userRole: UserRole): UserRole[] {
   const userRoleLevel = ROLE_HIERARCHY[userRole];
+
+  // Guard clause for undefined role levels
+  if (userRoleLevel === undefined) {
+    return [];
+  }
+
   return Object.entries(ROLE_HIERARCHY)
     .filter(([, level]) => level <= userRoleLevel)
     .map(([role]) => role as UserRole);

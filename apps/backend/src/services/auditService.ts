@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { getPrismaClient } from './db';
 import logger from './logger';
 
@@ -18,7 +19,7 @@ export interface AuditLogEntry {
   id: string;
   action: string;
   userId: string | null;
-  details: Record<string, unknown>;
+  details: Prisma.JsonValue;
   timestamp: Date;
   createdAt: Date;
 }
@@ -56,7 +57,7 @@ export class AuditService {
         data: {
           action,
           userId: userId || null,
-          details: (details || {}) as Record<string, unknown>,
+          details: (details || {}) as Prisma.InputJsonValue,
         },
       });
 

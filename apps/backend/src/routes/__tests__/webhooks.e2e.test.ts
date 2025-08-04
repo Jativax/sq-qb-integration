@@ -150,8 +150,7 @@ describe('Webhooks E2E Integration Tests', () => {
 
     it('should queue webhook payload for background processing', async () => {
       // Arrange: Generate valid signature for the test
-      const requestBody = JSON.stringify(sampleSquareWebhookPayload);
-      const validSignature = generateValidSignature(requestBody);
+      const validSignature = generateValidSignature();
 
       // Act: Send the webhook request to our API with valid signature
       const response = await request(app)
@@ -175,8 +174,7 @@ describe('Webhooks E2E Integration Tests', () => {
 
     it('should handle Square API errors gracefully', async () => {
       // Arrange: Generate valid signature
-      const requestBody = JSON.stringify(sampleSquareWebhookPayload);
-      const validSignature = generateValidSignature(requestBody);
+      const validSignature = generateValidSignature();
 
       // Mock Square API to return an error
       nock('https://connect.squareupsandbox.com')
@@ -214,8 +212,7 @@ describe('Webhooks E2E Integration Tests', () => {
 
     it('should handle QuickBooks API errors gracefully', async () => {
       // Arrange: Generate valid signature
-      const requestBody = JSON.stringify(sampleSquareWebhookPayload);
-      const validSignature = generateValidSignature(requestBody);
+      const validSignature = generateValidSignature();
 
       // Mock successful Square API call
       nock('https://connect.squareupsandbox.com')
@@ -268,8 +265,7 @@ describe('Webhooks E2E Integration Tests', () => {
       };
 
       // Generate valid signature for the invalid payload (signature validation happens first)
-      const requestBody = JSON.stringify(invalidPayload);
-      const validSignature = generateValidSignature(requestBody);
+      const validSignature = generateValidSignature();
 
       const response = await request(app)
         .post('/api/v1/webhooks/square')
@@ -318,8 +314,7 @@ describe('Webhooks E2E Integration Tests', () => {
 
     it('should handle missing Content-Type header', async () => {
       // Generate valid signature even though content-type is missing
-      const requestBody = JSON.stringify(sampleSquareWebhookPayload);
-      const validSignature = generateValidSignature(requestBody);
+      const validSignature = generateValidSignature();
 
       const response = await request(app)
         .post('/api/v1/webhooks/square')
@@ -337,7 +332,7 @@ describe('Webhooks E2E Integration Tests', () => {
 
     it('should handle malformed JSON', async () => {
       const malformedBody = '{ invalid json }';
-      const validSignature = generateValidSignature(malformedBody);
+      const validSignature = generateValidSignature();
 
       const response = await request(app)
         .post('/api/v1/webhooks/square')
