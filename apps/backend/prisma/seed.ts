@@ -9,7 +9,9 @@ async function main() {
 
   // Hash passwords using Argon2 for security
   const adminPassword = await argon2.hash('admin123' + config.PASSWORD_PEPPER);
-  const viewerPassword = await argon2.hash('viewer123' + config.PASSWORD_PEPPER);
+  const viewerPassword = await argon2.hash(
+    'viewer123' + config.PASSWORD_PEPPER
+  );
 
   // Create admin user
   const adminUser = await prisma.user.upsert({

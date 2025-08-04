@@ -24,7 +24,9 @@ router.post(
   async (req: express.Request, res: express.Response) => {
     try {
       const rawBody = (req as express.Request & { rawBody?: Buffer }).rawBody;
-      const requestUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+      const requestUrl = `${req.protocol}://${req.get('host')}${
+        req.originalUrl
+      }`;
       const providedSignature = req.get('x-square-signature');
 
       logger.info(
@@ -39,14 +41,19 @@ router.post(
       );
 
       // Validate Square webhook signature BEFORE further processing
-      if (!rawBody ||
-          !securityService.validateSquareSignature(
-            rawBody,
-            requestUrl,
-            providedSignature
-          )) {
+      if (
+        !rawBody ||
+        !securityService.validateSquareSignature(
+          rawBody,
+          requestUrl,
+          providedSignature
+        )
+      ) {
         logger.warn('Invalid Square webhook signature');
-        res.status(401).json({ error: 'Unauthorized', message: 'Invalid webhook signature' });
+        res.status(401).json({
+          error: 'Unauthorized',
+          message: 'Invalid webhook signature',
+        });
         return;
       }
 

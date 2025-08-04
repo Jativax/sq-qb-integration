@@ -122,7 +122,10 @@ class ReconciliationWorkerService {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore – custom metric helper may not exist in interface
       if (typeof metricsService.recordCustomMetric === 'function') {
-        metricsService.recordCustomMetric('reconciliation_orphans', orphanOrders.length);
+        metricsService.recordCustomMetric(
+          'reconciliation_orphans',
+          orphanOrders.length
+        );
       }
     } catch (error) {
       logger.error({ err: error }, 'Reconciliation job failed');
@@ -168,7 +171,9 @@ class ReconciliationWorkerService {
 
     if (!resp.ok) {
       const text = await resp.text();
-      throw new Error(`Failed to search Square orders: HTTP ${resp.status} – ${text}`);
+      throw new Error(
+        `Failed to search Square orders: HTTP ${resp.status} – ${text}`
+      );
     }
 
     const data = (await resp.json()) as { orders?: Array<{ id: string }> };
@@ -178,8 +183,14 @@ class ReconciliationWorkerService {
   /**
    * Handle an orphan Square order (log & enqueue for re-processing).
    */
-  private async handleOrphanOrder(order: { id: string; [key: string]: unknown }) {
-    logger.error({ orphanOrderId: order.id, order }, 'Orphan Square order found! Revenue may not be booked.');
+  private async handleOrphanOrder(order: {
+    id: string;
+    [key: string]: unknown;
+  }) {
+    logger.error(
+      { orphanOrderId: order.id, order },
+      'Orphan Square order found! Revenue may not be booked.'
+    );
 
     // Enqueue a re-processing job immediately
     await this.orderQueue.add(
@@ -203,10 +214,16 @@ class ReconciliationWorkerService {
       }
     );
 
-    logger.warn({ orderId: order.id }, 'Enqueued re-processing job for orphan order');
+    logger.warn(
+      { orderId: order.id },
+      'Enqueued re-processing job for orphan order'
+    );
 
     // Placeholder for alerting/monitoring integration
-    logger.warn({ orderId: order.id }, 'ALERT: Orphan order detected – monitoring system notified');
+    logger.warn(
+      { orderId: order.id },
+      'ALERT: Orphan order detected – monitoring system notified'
+    );
   }
 }
 

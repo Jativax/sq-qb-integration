@@ -161,9 +161,15 @@ export class QueueService {
           },
         }
       );
-      logger.info({ cronExpression }, 'Scheduled financial reconciliation cron job');
+      logger.info(
+        { cronExpression },
+        'Scheduled financial reconciliation cron job'
+      );
     } catch (error) {
-      logger.error({ err: error }, 'Failed to schedule reconciliation cron job');
+      logger.error(
+        { err: error },
+        'Failed to schedule reconciliation cron job'
+      );
     }
   }
 

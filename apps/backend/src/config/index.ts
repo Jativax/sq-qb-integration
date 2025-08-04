@@ -50,7 +50,9 @@ const configSchema = z.object({
   WORKER_CONCURRENCY: z.coerce.number().min(1).max(50).default(5),
 
   // Security
-  PASSWORD_PEPPER: z.string().min(16, 'PASSWORD_PEPPER is required and must be at least 16 characters'),
+  PASSWORD_PEPPER: z
+    .string()
+    .min(16, 'PASSWORD_PEPPER is required and must be at least 16 characters'),
 
   // Testing Configuration (optional)
   FORCE_QB_FAILURE: z.string().optional(),
@@ -83,10 +85,10 @@ function readDockerSecret(secretName: string): string | undefined {
  */
 function loadConfigurationValues(): Record<string, string | undefined> {
   const isProduction = process.env.NODE_ENV === 'production';
-  
+
   if (isProduction) {
     logger.info('Loading configuration from Docker secrets (production mode)');
-    
+
     // In production, read sensitive values from Docker secrets
     return {
       // Keep non-sensitive values from environment
@@ -101,9 +103,11 @@ function loadConfigurationValues(): Record<string, string | undefined> {
       QB_ENVIRONMENT: process.env.QB_ENVIRONMENT,
       WORKER_CONCURRENCY: process.env.WORKER_CONCURRENCY,
       FORCE_QB_FAILURE: process.env.FORCE_QB_FAILURE,
-      
+
       // Read sensitive values from Docker secrets
-      SQUARE_WEBHOOK_SIGNATURE_KEY: readDockerSecret('square_webhook_signature_key'),
+      SQUARE_WEBHOOK_SIGNATURE_KEY: readDockerSecret(
+        'square_webhook_signature_key'
+      ),
       SQUARE_ACCESS_TOKEN: readDockerSecret('square_access_token'),
       SQUARE_APPLICATION_ID: readDockerSecret('square_application_id'),
       QB_ACCESS_TOKEN: readDockerSecret('qb_access_token'),
@@ -111,7 +115,9 @@ function loadConfigurationValues(): Record<string, string | undefined> {
       PASSWORD_PEPPER: readDockerSecret('password_pepper'),
     };
   } else {
-    logger.info('Loading configuration from environment variables (development mode)');
+    logger.info(
+      'Loading configuration from environment variables (development mode)'
+    );
     // In development, use environment variables as before
     return process.env as Record<string, string | undefined>;
   }
@@ -124,7 +130,7 @@ function loadConfig(): Config {
   try {
     // Load configuration values (from secrets in production, env vars in development)
     const configValues = loadConfigurationValues();
-    
+
     // Parse and validate configuration values
     const config = configSchema.parse(configValues);
 
