@@ -65,7 +65,7 @@ export interface AuditLog {
   timestamp: string;
   action: string;
   userId: string | null;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   createdAt: string;
 }
 

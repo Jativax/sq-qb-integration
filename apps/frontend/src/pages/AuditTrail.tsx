@@ -42,7 +42,7 @@ export default function AuditTrail() {
     });
   };
 
-  const formatDetails = (details: Record<string, any>) => {
+  const formatDetails = (details: Record<string, unknown>) => {
     if (!details || Object.keys(details).length === 0) {
       return 'No details';
     }

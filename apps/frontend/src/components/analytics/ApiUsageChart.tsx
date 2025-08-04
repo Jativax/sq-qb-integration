@@ -67,7 +67,7 @@ export function ApiUsageChart({ metrics }: ApiUsageChartProps) {
 
   const COLORS = ['#f59e0b', '#3b82f6'];
 
-  const renderLabel = (entry: any) => {
+  const renderLabel = (entry: { percentage: number }) => {
     return `${entry.percentage}%`;
   };
 

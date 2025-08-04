@@ -34,13 +34,18 @@ export default function Login() {
       // Login successful, redirect to dashboard
       console.log('Login successful:', loginResponse.user);
       navigate('/');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Login failed:', err);
 
       // Extract error message
       const errorMessage =
-        err.response?.data?.message ||
-        err.message ||
+        (
+          err as {
+            response?: { data?: { message?: string } };
+            message?: string;
+          }
+        ).response?.data?.message ||
+        (err as Error).message ||
         'Login failed. Please try again.';
 
       setError(errorMessage);

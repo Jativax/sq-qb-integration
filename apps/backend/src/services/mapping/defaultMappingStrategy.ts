@@ -7,6 +7,42 @@ import {
 import { QBSalesReceiptData } from '../quickBooksClient';
 import logger from '../logger';
 
+// Interface for Square line item data
+interface SquareLineItem {
+  name?: string;
+  quantity?: string;
+  total_money?: { amount?: number };
+  base_price_money?: { amount?: number };
+  variation_name?: string;
+  modifiers?: SquareModifier[];
+}
+
+// Interface for Square modifier data
+interface SquareModifier {
+  name?: string;
+  total_price_money?: { amount?: number };
+  base_price_money?: { amount?: number };
+}
+
+// Interface for Square tax data
+interface SquareTax {
+  applied_money?: { amount?: number };
+  name?: string;
+}
+
+// Interface for Square discount data
+interface SquareDiscount {
+  applied_money?: { amount?: number };
+  name?: string;
+}
+
+// Interface for Square service charge data
+interface SquareServiceCharge {
+  applied_money?: { amount?: number };
+  name?: string;
+  type?: string;
+}
+
 /**
  * Default mapping strategy that implements the basic Square-to-QuickBooks transformation
  * This strategy provides a straightforward mapping with sensible defaults
@@ -77,10 +113,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
    * @param context Optional mapping context
    * @returns Promise resolving to true if the order can be processed
    */
-  async canHandle(
-    order: SquareOrder,
-    context?: MappingContext
-  ): Promise<boolean> {
+  async canHandle(order: SquareOrder): Promise<boolean> {
     // Default strategy can handle any order with basic validation
     if (!order.id) {
       logger.warn('Order missing required ID field');
@@ -268,7 +301,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
    * Transform a single Square line item
    * @private
    */
-  private transformLineItem(item: any, context?: MappingContext) {
+  private transformLineItem(item: SquareLineItem, _context?: MappingContext) {
     const itemTotalMoney = item.total_money;
     const itemBaseMoney = item.base_price_money;
     const itemAmountCents =
@@ -280,7 +313,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
 
     // Check for custom item mapping
     const customMapping =
-      context?.options?.itemMapping?.[item.catalog_object_id || itemName];
+      _context?.options?.itemMapping?.[item.catalog_object_id || itemName];
 
     return {
       Amount: itemAmountDollars,
@@ -302,9 +335,8 @@ export class DefaultMappingStrategy implements MappingStrategy {
    * @private
    */
   private transformModifier(
-    modifier: any,
-    parentItem: any,
-    _context?: MappingContext
+    modifier: SquareModifier,
+    parentItem: SquareLineItem
   ) {
     const modifierAmountCents =
       modifier.total_price_money?.amount ||
@@ -337,7 +369,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
    * Transform a Square tax into a QuickBooks line item
    * @private
    */
-  private transformTaxAsLineItem(tax: any, _context?: MappingContext) {
+  private transformTaxAsLineItem(tax: SquareTax) {
     const taxAmountCents = tax.applied_money?.amount || 0;
     const taxAmountDollars = taxAmountCents / 100;
 
@@ -363,10 +395,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
    * Transform a Square discount into a QuickBooks line item
    * @private
    */
-  private transformDiscountAsLineItem(
-    discount: any,
-    _context?: MappingContext
-  ) {
+  private transformDiscountAsLineItem(discount: SquareDiscount) {
     const discountAmountCents = discount.applied_money?.amount || 0;
     const discountAmountDollars = -(discountAmountCents / 100); // Negative for discount
 
@@ -393,8 +422,8 @@ export class DefaultMappingStrategy implements MappingStrategy {
    * @private
    */
   private transformServiceChargeAsLineItem(
-    serviceCharge: any,
-    context?: MappingContext
+    serviceCharge: SquareServiceCharge,
+    _context?: MappingContext
   ) {
     const serviceChargeAmountCents = serviceCharge.applied_money?.amount || 0;
     const serviceChargeAmountDollars = serviceChargeAmountCents / 100; // Positive for service charge
@@ -405,7 +434,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
 
     // Determine if this is a tip or other surcharge
     const isTip = this.isServiceChargeTip(serviceCharge);
-    const itemMapping = context?.options?.serviceChargeMapping;
+    const itemMapping = _context?.options?.serviceChargeMapping;
 
     let itemId: string;
     let itemName: string;
@@ -443,7 +472,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
    * Determine if a service charge is a tip based on its properties
    * @private
    */
-  private isServiceChargeTip(serviceCharge: any): boolean {
+  private isServiceChargeTip(serviceCharge: SquareServiceCharge): boolean {
     // Check service charge type
     if (serviceCharge.type === 'AUTO_GRATUITY') {
       return true;
@@ -472,10 +501,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
    * Generate customer name from Square order
    * @private
    */
-  private getCustomerName(
-    order: SquareOrder,
-    _context?: MappingContext
-  ): string {
+  private getCustomerName(order: SquareOrder): string {
     // If we have a customer_id, use it in the name for identification
     if (order.customer_id) {
       return `Square Customer ${order.customer_id}`;
@@ -489,10 +515,7 @@ export class DefaultMappingStrategy implements MappingStrategy {
    * Generate payment method name based on order tenders
    * @private
    */
-  private getPaymentMethodName(
-    order: SquareOrder,
-    _context?: MappingContext
-  ): string {
+  private getPaymentMethodName(order: SquareOrder): string {
     // Check if order has tender information
     if (order.tenders && order.tenders.length > 0) {
       const primaryTender = order.tenders[0];

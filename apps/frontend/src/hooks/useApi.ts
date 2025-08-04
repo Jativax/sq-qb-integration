@@ -9,7 +9,6 @@ import type {
   RetryJobResponse,
   AuditLog,
   AuditLogStats,
-  AnalyticsMetrics,
 } from '../services/api';
 
 // Query keys for consistent caching

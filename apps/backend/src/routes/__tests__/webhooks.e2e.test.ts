@@ -84,10 +84,7 @@ describe('Webhooks E2E Integration Tests', () => {
    * Helper function to generate a valid Square webhook signature
    * Note: For testing, we'll use a middleware override to skip signature validation for valid test scenarios
    */
-  const generateValidSignature = (
-    requestBody: string,
-    _signatureKey: string = TEST_SIGNATURE_KEY
-  ): string => {
+  const generateValidSignature = (): string => {
     // Return a special test signature that we'll recognize in our middleware
     return 'VALID_TEST_SIGNATURE';
   };

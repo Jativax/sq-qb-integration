@@ -8,7 +8,20 @@ import logger from './logger';
 export interface AuditEventParams {
   action: string;
   userId?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Interface for audit log entry
+ */
+export interface AuditLogEntry {
+  id: string;
+  action: string;
+  userId?: string;
+  details?: Record<string, unknown>;
+  timestamp: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 /**
@@ -75,7 +88,7 @@ export class AuditService {
    * @param limit - Maximum number of logs to retrieve (default: 100)
    * @returns Promise resolving to array of audit log entries
    */
-  async getRecentLogs(limit: number = 100): Promise<any[]> {
+  async getRecentLogs(limit: number = 100): Promise<AuditLogEntry[]> {
     try {
       logger.info({ limit }, 'Fetching recent audit logs');
 
@@ -106,7 +119,10 @@ export class AuditService {
    * @param limit - Maximum number of logs to retrieve (default: 50)
    * @returns Promise resolving to array of audit log entries
    */
-  async getLogsByAction(action: string, limit: number = 50): Promise<any[]> {
+  async getLogsByAction(
+    action: string,
+    limit: number = 50
+  ): Promise<AuditLogEntry[]> {
     try {
       logger.info({ action, limit }, 'Fetching audit logs by action');
 
@@ -144,7 +160,10 @@ export class AuditService {
    * @param limit - Maximum number of logs to retrieve (default: 50)
    * @returns Promise resolving to array of audit log entries
    */
-  async getLogsByUser(userId: string, limit: number = 50): Promise<any[]> {
+  async getLogsByUser(
+    userId: string,
+    limit: number = 50
+  ): Promise<AuditLogEntry[]> {
     try {
       logger.info({ userId, limit }, 'Fetching audit logs by user');
 

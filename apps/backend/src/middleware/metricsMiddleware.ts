@@ -57,7 +57,7 @@ export function enhancedMetricsMiddleware(routeName?: string) {
     const startTime = Date.now();
     const originalEnd = res.end;
 
-    res.end = function (chunk?: unknown, encoding?: BufferEncoding): Response {
+    res.end = function (chunk?: unknown, encoding?: string): Response {
       const duration = (Date.now() - startTime) / 1000;
 
       // Use provided route name or fallback to detected route
@@ -87,7 +87,7 @@ export function webhookMetricsMiddleware(webhookSource: string) {
     const startTime = Date.now();
     const originalEnd = res.end;
 
-    res.end = function (chunk?: unknown, encoding?: BufferEncoding): Response {
+    res.end = function (chunk?: unknown, encoding?: string): Response {
       const duration = (Date.now() - startTime) / 1000;
       const route = req.route?.path || req.path || 'unknown';
       const userAgent = req.get('User-Agent') || 'unknown';

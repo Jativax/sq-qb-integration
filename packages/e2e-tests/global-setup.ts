@@ -1,5 +1,6 @@
 import { FullConfig } from '@playwright/test';
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 async function globalSetup(_config: FullConfig) {
   console.log('🚀 Starting E2E test global setup...');
 
