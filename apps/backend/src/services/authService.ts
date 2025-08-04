@@ -1,5 +1,6 @@
 import { PrismaClient, User, Session, UserRole } from '@prisma/client';
 import argon2 from 'argon2';
+import config from '../config';
 import crypto from 'crypto';
 import { getPrismaClient } from './db';
 import logger from './logger';
@@ -65,7 +66,10 @@ export class AuthService {
       }
 
       // Verify password using Argon2
-      const isPasswordValid = await argon2.verify(user.password, password);
+      const isPasswordValid = await argon2.verify(
+        user.password,
+        password + config.PASSWORD_PEPPER
+      );
 
       if (!isPasswordValid) {
         logger.warn(

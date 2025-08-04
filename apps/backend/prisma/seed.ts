@@ -1,5 +1,6 @@
 import { PrismaClient, UserRole } from '@prisma/client';
 import argon2 from 'argon2';
+import config from '../src/config';
 
 const prisma = new PrismaClient();
 
@@ -7,8 +8,8 @@ async function main() {
   console.log('🌱 Starting database seeding...');
 
   // Hash passwords using Argon2 for security
-  const adminPassword = await argon2.hash('admin123');
-  const viewerPassword = await argon2.hash('viewer123');
+  const adminPassword = await argon2.hash('admin123' + config.PASSWORD_PEPPER);
+  const viewerPassword = await argon2.hash('viewer123' + config.PASSWORD_PEPPER);
 
   // Create admin user
   const adminUser = await prisma.user.upsert({

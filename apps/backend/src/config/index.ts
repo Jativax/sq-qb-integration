@@ -47,6 +47,9 @@ const configSchema = z.object({
   // Worker Configuration
   WORKER_CONCURRENCY: z.coerce.number().min(1).max(50).default(5),
 
+  // Security
+  PASSWORD_PEPPER: z.string().min(16, 'PASSWORD_PEPPER is required and must be at least 16 characters'),
+
   // Testing Configuration (optional)
   FORCE_QB_FAILURE: z.string().optional(),
 });
