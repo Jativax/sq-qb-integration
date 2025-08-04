@@ -43,7 +43,7 @@ services:
 
   # PostgreSQL connection pooler
   pgbouncer:
-    image: edoburu/pgbouncer:1.21.0
+    image: edoburu/pgbouncer:1.18.0
     container_name: sq-qb-pgbouncer
     restart: unless-stopped
     environment:
