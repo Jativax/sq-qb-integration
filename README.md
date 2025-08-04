@@ -196,6 +196,7 @@ The project includes a comprehensive GitHub Actions workflow that automatically 
 ### **Workflow Triggers**
 
 The production pipeline runs on:
+
 - **Push to production branch**: Automatic deployment on code changes
 - **Manual trigger**: Via GitHub Actions UI (`workflow_dispatch`)
 
@@ -204,10 +205,12 @@ The production pipeline runs on:
 To enable Docker image publishing, add the following secrets to your GitHub repository:
 
 1. **Navigate to Repository Settings**:
+
    - Go to your GitHub repository
    - Click on **Settings** → **Secrets and variables** → **Actions**
 
 2. **Add Required Secrets**:
+
    ```
    DOCKERHUB_USERNAME: your-dockerhub-username
    DOCKERHUB_TOKEN: your-dockerhub-access-token
@@ -223,10 +226,12 @@ To enable Docker image publishing, add the following secrets to your GitHub repo
 ### **Published Images**
 
 The pipeline publishes the following Docker images:
+
 - **Backend**: `your-dockerhub-username/sq-qb-backend:latest`
 - **Frontend**: `your-dockerhub-username/sq-qb-frontend:latest`
 
 Each image is also tagged with the Git commit SHA for version tracking:
+
 - `your-dockerhub-username/sq-qb-backend:${COMMIT_SHA}`
 - `your-dockerhub-username/sq-qb-frontend:${COMMIT_SHA}`
 
@@ -290,6 +295,7 @@ In production, sensitive credentials are managed using Docker Secrets instead of
 Before deploying to production, you need to build and publish the Docker images:
 
 1. **Build the backend image**:
+
    ```bash
    cd apps/backend
    docker build -t your-docker-registry/sq-qb-backend:latest .
@@ -318,6 +324,7 @@ Before deploying to production, you need to build and publish the Docker images:
    ```
 
 3. **Stop production deployment**:
+
    ```bash
    docker-compose -f docker-compose.prod.yml down
    ```

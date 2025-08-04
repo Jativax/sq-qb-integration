@@ -12,7 +12,11 @@ services:
     secrets:
       - postgres_password
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-squser} -d ${POSTGRES_DB:-sq_qb_integration}']
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-squser} -d ${POSTGRES_DB:-sq_qb_integration}',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -111,9 +115,17 @@ services:
     depends_on:
       - backend
     ports:
-      - "80:80"
+      - '80:80'
     healthcheck:
-      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:80/health']
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:80/health',
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
