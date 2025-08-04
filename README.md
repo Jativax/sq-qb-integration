@@ -178,6 +178,66 @@ This script is designed for seamless integration into CI/CD pipelines:
 
 **Success Criteria**: Script exits with code `0` and displays "✅ All checks passed! The project is ready for deployment."
 
+## 🚀 **Production CI/CD Pipeline**
+
+[![Production CI/CD](https://github.com/Jativax/sq-qb-integration/actions/workflows/production-ci-cd.yml/badge.svg?branch=production)](https://github.com/Jativax/sq-qb-integration/actions/workflows/production-ci-cd.yml)
+
+The project includes a comprehensive GitHub Actions workflow that automatically tests, builds, and publishes production Docker images when code is pushed to the `production` branch.
+
+### **Pipeline Features**
+
+- **Automated Testing**: Runs the complete `ci:checks` validation suite
+- **Multi-Platform Builds**: Creates Docker images for `linux/amd64` and `linux/arm64`
+- **Docker Hub Publishing**: Automatically publishes images with both `latest` and commit SHA tags
+- **Build Caching**: Optimized builds using GitHub Actions cache
+- **Deployment Artifacts**: Generates production-ready docker-compose files
+- **Comprehensive Reporting**: Detailed deployment summaries with ready-to-use commands
+
+### **Workflow Triggers**
+
+The production pipeline runs on:
+- **Push to production branch**: Automatic deployment on code changes
+- **Manual trigger**: Via GitHub Actions UI (`workflow_dispatch`)
+
+### **Docker Hub Setup**
+
+To enable Docker image publishing, add the following secrets to your GitHub repository:
+
+1. **Navigate to Repository Settings**:
+   - Go to your GitHub repository
+   - Click on **Settings** → **Secrets and variables** → **Actions**
+
+2. **Add Required Secrets**:
+   ```
+   DOCKERHUB_USERNAME: your-dockerhub-username
+   DOCKERHUB_TOKEN: your-dockerhub-access-token
+   ```
+
+3. **Generate Docker Hub Access Token**:
+   - Go to [Docker Hub Account Settings](https://hub.docker.com/settings/security)
+   - Click **New Access Token**
+   - Name: `GitHub Actions CI/CD`
+   - Permissions: `Read, Write, Delete`
+   - Copy the generated token
+
+### **Published Images**
+
+The pipeline publishes the following Docker images:
+- **Backend**: `your-dockerhub-username/sq-qb-backend:latest`
+- **Frontend**: `your-dockerhub-username/sq-qb-frontend:latest`
+
+Each image is also tagged with the Git commit SHA for version tracking:
+- `your-dockerhub-username/sq-qb-backend:${COMMIT_SHA}`
+- `your-dockerhub-username/sq-qb-frontend:${COMMIT_SHA}`
+
+### **Production Deployment Process**
+
+1. **Push to production branch** triggers the CI/CD pipeline
+2. **Pipeline validates** the entire codebase using `ci:checks`
+3. **Docker images are built** and published to Docker Hub
+4. **Deployment artifacts** are generated with specific image tags
+5. **Use the artifacts** to deploy to your production environment
+
 ## Production Deployment
 
 The application supports secure production deployment using Docker Secrets for sensitive credential management.
