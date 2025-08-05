@@ -32,6 +32,10 @@ RUN pnpm --filter backend build
 # Usa pnpm deploy para crear artefactos autocontenidos
 RUN pnpm --filter backend deploy --prod /app/deploy
 
+# Ensure Prisma files are included in the deployment
+RUN cp -r apps/backend/prisma /app/deploy/ && \
+    cp -r apps/backend/dist/prisma /app/deploy/dist/ || true
+
 # Etapa runtime mínima
 FROM node:18.20-alpine3.19 AS production
 ENV NODE_ENV=production

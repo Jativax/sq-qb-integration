@@ -89,6 +89,8 @@ docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_se
     ls -la prisma || true
     echo '== dist/prisma/ =='
     ls -la dist/prisma || true
+    echo '== node_modules/@prisma/client/ =='
+    ls -la node_modules/@prisma/client || true
     test -f prisma/schema.prisma && echo '✅ schema present' || (echo '❌ schema missing' && exit 1)
     test -f dist/prisma/seed.js && echo '✅ seed.js present' || (echo '❌ seed.js missing' && exit 1)
   "
