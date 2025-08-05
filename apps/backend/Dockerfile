@@ -1,58 +1,45 @@
-# apps/backend/Dockerfile
-
-# ---- Base ----
+# Etapa base
 FROM node:18-alpine AS base
 WORKDIR /app
-RUN npm install -g pnpm@8.6.12
+RUN npm i -g pnpm@8.6.12
 
-
-# ---- Builder ----
-# This stage installs all dependencies and builds the application.
+# Etapa builder
 FROM base AS builder
 WORKDIR /app
 
-# Copy all package manifests and the lockfile
+# Archivos raíz del monorepo
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+# Manifiestos para resolver workspaces
 COPY apps/backend/package.json ./apps/backend/
 COPY apps/frontend/package.json ./apps/frontend/
 COPY packages/e2e-tests/package.json ./packages/e2e-tests/
 
-# Install ALL monorepo dependencies (including dev dependencies)
+# Instala dependencias sin scripts (evita postinstall de Prisma)
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
-# Copy the rest of the backend source code
+# Copia código backend (incluye prisma/)
 COPY apps/backend/ ./apps/backend/
 
-# Build the backend application
+# ⚠️ Genera Prisma de forma explícita (apunta al schema del backend)
+RUN pnpm --filter backend exec prisma generate --schema apps/backend/prisma/schema.prisma
+
+# Compila TypeScript del backend
 RUN pnpm --filter backend build
 
-# Use `pnpm deploy` to create a self-contained production-ready folder.
-# This command copies the backend's source, its production dependencies,
-# and the compiled `dist` folder into `/app/deploy`.
-RUN pnpm deploy --filter backend --prod /app/deploy
+# Usa pnpm deploy para crear artefactos autocontenidos
+RUN pnpm --filter backend deploy --prod /app/deploy
 
-
-# ---- Production ----
-# This is the final, lean image that will run the application.
-FROM base AS production
+# Etapa runtime mínima
+FROM node:18-alpine AS production
+ENV NODE_ENV=production
+RUN addgroup -g 1001 -S appgroup && adduser -S appuser -u 1001
 WORKDIR /app
 
-# Create a non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S appuser -u 1001
-
-# Copy the self-contained deployment folder from the builder stage
+# Copia artefactos autocontenidos del deploy
 COPY --from=builder /app/deploy .
 
-# Change ownership of the files to the non-root user
-RUN chown -R appuser:nodejs /app
-
-# Switch to the non-root user
+RUN chown -R appuser:appgroup /app
 USER appuser
-
-# Expose the application port
 EXPOSE 3001
-
-# Set the production environment and run the application
-ENV NODE_ENV=production
-CMD ["node", "dist/server.js"]
+CMD ["node","dist/server.js"]

@@ -38,8 +38,13 @@ success "No linting errors found"
 
 # STEP 2.5: Prisma Client Generation (local check)
 step "2.5" "Generating Prisma Client" "Generating Prisma client and types..."
-pnpm --filter backend exec prisma generate
+pnpm --filter backend exec prisma generate --schema apps/backend/prisma/schema.prisma
 success "Prisma client generated"
+
+# STEP 2.6: TypeScript Type Check (local verification)
+step "2.6" "TypeScript Type Check" "Verifying TypeScript types without emit..."
+pnpm --filter backend exec tsc --noEmit
+success "TypeScript types verified"
 
 # STEP 3: TypeScript Compilation
 step "3" "TypeScript Compilation Check" "Compiling backend TypeScript..."
@@ -68,10 +73,10 @@ sleep 15
 
 # Apply database migrations and seeding INSIDE the Docker network
 echo "ℹ️  Applying database migrations..."
-docker compose run --rm backend_service_runner npx prisma migrate deploy --schema=./apps/backend/prisma/schema.prisma
+docker compose run --rm backend_service_runner pnpm --filter backend exec prisma migrate deploy --schema apps/backend/prisma/schema.prisma
 
 echo "ℹ️  Seeding the database..."
-docker compose run --rm backend_service_runner npx prisma db seed --schema=./apps/backend/prisma/schema.prisma
+docker compose run --rm backend_service_runner pnpm --filter backend exec prisma db seed --schema apps/backend/prisma/schema.prisma
 
 # Start backend and frontend services for E2E testing
 echo "ℹ️  Starting backend and frontend services for E2E testing..."
