@@ -1,0 +1,24 @@
+# Playwright test outputs
+test-results/
+playwright-report/
+playwright/.cache/
+*.trace
+*.webm
+*.png
+
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db 

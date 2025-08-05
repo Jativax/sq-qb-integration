@@ -13,8 +13,14 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : 1, // Single worker for E2E tests
+  /* Shard tests between multiple machines. */
+  shard: process.env.CI ? { total: 1, current: 1 } : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  reporter: [
+    ['html'],
+    ['json', { outputFile: 'test-results/results.json' }],
+    ['junit', { outputFile: 'test-results/results.xml' }],
+  ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
@@ -25,6 +31,10 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     /* Record video on failure */
     video: 'retain-on-failure',
+    /* Auto-wait for elements to be ready */
+    actionTimeout: 10000,
+    /* Navigation timeout */
+    navigationTimeout: 30000,
   },
 
   /* Configure projects for major browsers */
@@ -56,4 +66,6 @@ export default defineConfig({
     /* Timeout for expect() assertions */
     timeout: 10 * 1000, // 10 seconds
   },
+  /* Global timeout for the entire test run */
+  globalTimeout: process.env.CI ? 600000 : 300000, // 10 min in CI, 5 min locally
 });
