@@ -64,9 +64,9 @@ export const accessLogMiddleware = pinoHttp({
     res: res => ({
       statusCode: res.statusCode,
       headers: {
-        'content-type': res.getHeader('content-type'),
-        'content-length': res.getHeader('content-length'),
-        'x-response-time': res.getHeader('x-response-time'),
+        'content-type': safeGetHeader(res, 'content-type'),
+        'content-length': safeGetHeader(res, 'content-length'),
+        'x-response-time': safeGetHeader(res, 'x-response-time'),
       },
       // Only include response body in non-production for debugging
       ...(ACCESS_LOG_INCLUDE_BODY &&
@@ -106,7 +106,7 @@ export const accessLogMiddleware = pinoHttp({
 
   // Custom success message
   customSuccessMessage: function (req, res) {
-    const duration = res.getHeader('x-response-time') || 0;
+    const duration = safeGetHeader(res, 'x-response-time') || 0;
     return `${req.method} ${req.url} ${res.statusCode} - ${duration}ms`;
   },
 
