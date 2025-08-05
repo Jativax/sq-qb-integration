@@ -30,13 +30,22 @@ RUN pnpm --filter backend exec prisma generate --schema prisma/schema.prisma
 RUN pnpm --filter backend run build \
  && pnpm --filter backend run build:seed
 
-# Assert seed output exists
-RUN test -f apps/backend/dist/prisma/seed.js
+# Assert seed output exists with diagnostics if missing
+RUN set -eux; \
+    SEED_PATH="apps/backend/dist/prisma/seed.js"; \
+    if [ ! -f "$SEED_PATH" ]; then \
+      echo "❌ seed.js not found at $SEED_PATH"; \
+      echo "Tree under apps/backend/dist:"; \
+      ls -la apps/backend/dist || true; \
+      echo "Searching for any seed.js under apps/backend:"; \
+      find apps/backend -maxdepth 6 -type f -name "seed.js" -print || true; \
+      exit 1; \
+    fi
 
 # Usa pnpm deploy para crear artefactos autocontenidos
 RUN pnpm --filter backend deploy --prod /app/deploy
 
-# Produce a flat deploy at /app/deploy that matches verifier expectations
+# Build deploy artifacts
 RUN mkdir -p /app/deploy/prisma /app/deploy/dist/prisma \
  && cp -r apps/backend/prisma/* /app/deploy/prisma/ \
  && cp apps/backend/dist/prisma/seed.js /app/deploy/dist/prisma/
@@ -51,7 +60,7 @@ RUN apk add --no-cache openssl ca-certificates libstdc++
 RUN addgroup -g 1001 -S appgroup && adduser -S appuser -u 1001
 WORKDIR /app
 
-# Copia artefactos autocontenidos del deploy
+# Copy deploy artifacts to production stage
 COPY --from=builder /app/deploy .
 
 RUN chown -R appuser:appgroup /app
