@@ -15,5 +15,5 @@ services:
 
   # Fix: Clear volume mounts to prevent shadowing /app in CI
   backend_service_runner:
-    volumes: null # Explicitly remove the .:/app mount that shadows the built application
+    volumes: [] # Explicitly remove the .:/app mount that shadows the built application
     working_dir: /app # Set working directory to deployed app root

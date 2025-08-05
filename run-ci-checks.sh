@@ -77,6 +77,20 @@ echo "ℹ️  Checking PgBouncer health..."
 timeout 30s bash -c 'until nc -z localhost 6432; do sleep 2; done'
 echo "✅ All infrastructure services are healthy"
 
+# Add diagnostic to check if bind-mount is shadowing /app
+echo "ℹ️  Checking for bind-mount issues..."
+docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner sh -lc "
+  echo 'PWD: \$(pwd)'
+  echo '=== /app contents ==='
+  ls -la /app/ | head -10
+  echo '=== /app/node_modules check ==='
+  ls -ld /app/node_modules || echo '❌ /app/node_modules missing - bind-mount issue!'
+  echo '=== @prisma/client check ==='
+  ls -ld /app/node_modules/@prisma || echo '❌ @prisma missing - bind-mount issue!'
+  echo '=== require.resolve test ==='
+  node -e \"console.log('@prisma/client path:', require.resolve('@prisma/client'))\" || echo '❌ @prisma/client not resolvable'
+"
+
 # Apply database migrations and seeding INSIDE the Docker network
 echo "ℹ️  Verifying app contents in container..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner sh -lc "
