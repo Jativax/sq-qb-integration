@@ -11,6 +11,10 @@ jobs:
     name: Test, Build & Publish Docker Images
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      security-events: write
+
     steps:
       # Step 1: Checkout the code
       - name: Checkout code
@@ -105,11 +109,12 @@ jobs:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/sq-qb-backend:${{ github.sha }}
           format: 'sarif'
           output: 'backend-trivy-results.sarif'
+          exit-code: '0'
 
       # Step 8.3: Upload backend vulnerability scan results
       - name: Upload Backend Trivy scan results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v2
-        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('backend-trivy-results.sarif') != ''
         with:
           sarif_file: 'backend-trivy-results.sarif'
           category: 'backend-image-scan'
@@ -129,11 +134,12 @@ jobs:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/sq-qb-frontend:${{ github.sha }}
           format: 'sarif'
           output: 'frontend-trivy-results.sarif'
+          exit-code: '0'
 
       # Step 8.6: Upload frontend vulnerability scan results
       - name: Upload Frontend Trivy scan results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v2
-        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('frontend-trivy-results.sarif') != ''
         with:
           sarif_file: 'frontend-trivy-results.sarif'
           category: 'frontend-image-scan'
