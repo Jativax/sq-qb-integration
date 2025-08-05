@@ -3,10 +3,11 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": ".",
-    "composite": false,
     "noEmit": false,
     "emitDeclarationOnly": false,
     "declaration": false,
+    "declarationMap": false,
+    "composite": false,
     "tsBuildInfoFile": "./dist/tsconfig.seed.tsbuildinfo"
   },
   "include": ["prisma/seed.ts"]
