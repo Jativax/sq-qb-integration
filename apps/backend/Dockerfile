@@ -65,5 +65,6 @@ USER nextjs
 # Expose the application port
 EXPOSE 3001
 
-# Set the final command to run the application
-CMD ["node", "dist/index.js"]
+# Set the production environment and run the application directly
+ENV NODE_ENV=production
+CMD ["node", "dist/server.js"]

@@ -129,7 +129,7 @@ services:
       dockerfile: ./apps/frontend/Dockerfile
     container_name: sq-qb-frontend
     ports:
-      - '5173:80'
+      - '127.0.0.1:5173:80'
     depends_on:
       - backend
     networks:
