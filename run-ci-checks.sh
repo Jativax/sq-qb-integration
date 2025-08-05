@@ -82,17 +82,22 @@ echo "ℹ️  Verifying app contents in container..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
   sh -c "
     set -eu
+    cd /app
     echo '== $(pwd) =='
     ls -la .
     echo '== prisma/ =='
     ls -la prisma || true
+    echo '== dist/prisma/ =='
+    ls -la dist/prisma || true
     test -f prisma/schema.prisma && echo '✅ schema present' || (echo '❌ schema missing' && exit 1)
+    test -f dist/prisma/seed.js && echo '✅ seed.js present' || (echo '❌ seed.js missing' && exit 1)
   "
 
 echo "ℹ️  Verifying Prisma versions..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
   sh -c "
     set -e
+    cd /app
 
     # Show versions for logs
     echo '---- Prisma CLI version ----'
@@ -112,11 +117,11 @@ docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_se
 
 echo "ℹ️  Applying database migrations..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
-  sh -c "pnpm exec prisma migrate deploy"
+  sh -c "cd /app && pnpm exec prisma migrate deploy"
 
 echo "ℹ️  Seeding the database..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
-  sh -c "pnpm exec prisma db seed"
+  sh -c "cd /app && pnpm exec prisma db seed"
 
 # Start backend and frontend services for E2E testing
 echo "ℹ️  Starting backend and frontend services for E2E testing..."
