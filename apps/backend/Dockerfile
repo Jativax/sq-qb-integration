@@ -33,8 +33,13 @@ RUN pnpm --filter backend build
 RUN pnpm --filter backend deploy --prod /app/deploy
 
 # Ensure Prisma files are included in the deployment
-RUN cp -r apps/backend/prisma /app/deploy/ && \
-    cp -r apps/backend/dist/prisma /app/deploy/dist/ || true
+RUN mkdir -p /app/deploy/prisma /app/deploy/dist/prisma && \
+    cp -r apps/backend/prisma/* /app/deploy/prisma/ && \
+    if [ -f apps/backend/dist/prisma/seed.js ]; then \
+      cp apps/backend/dist/prisma/seed.js /app/deploy/dist/prisma/; \
+    else \
+      echo "Warning: seed.js not found, but continuing..."; \
+    fi
 
 # Etapa runtime mínima
 FROM node:18.20-alpine3.19 AS production
