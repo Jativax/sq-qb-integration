@@ -10,7 +10,8 @@ const hasDelegate = (p: any) =>
   typeof p.webhookDeduplication.create === 'function';
 
 const dedupDisabled =
-  config.NODE_ENV === 'test' || process.env.WEBHOOK_DEDUP_DISABLED === 'true';
+  config.NODE_ENV === 'test' ||
+  /^(1|true|yes)$/i.test(process.env['WEBHOOK_DEDUP_DISABLED'] ?? '');
 
 /**
  * Service for handling webhook deduplication using event_id
