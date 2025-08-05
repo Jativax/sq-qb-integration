@@ -101,3 +101,16 @@ model Session {
 
   @@map("sessions")
 }
+
+model WebhookDeduplication {
+  id        String   @id @default(cuid())
+  eventId   String   @unique // Square webhook event_id for deduplication
+  eventType String   // Type of webhook event (order.created, etc.)
+  processed Boolean  @default(false)
+  createdAt DateTime @default(now())
+  expiresAt DateTime // TTL for cleanup
+
+  @@index([eventId])
+  @@index([expiresAt]) // For efficient cleanup of expired records
+  @@map("webhook_deduplication")
+}

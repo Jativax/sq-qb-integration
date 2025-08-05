@@ -71,6 +71,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
+          sbom: true
+          provenance: true
 
       # Step 8: Build and push frontend Docker image
       - name: Build and push frontend image
@@ -85,6 +87,90 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
+          sbom: true
+          provenance: true
+
+      # Step 8.1: Generate SBOM for backend image
+      - name: Generate Backend SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/sq-qb-backend:${{ github.sha }}
+          format: spdx-json
+          output-file: backend-sbom.spdx.json
+
+      # Step 8.2: Scan backend image for vulnerabilities
+      - name: Scan Backend Image for Vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/sq-qb-backend:${{ github.sha }}
+          format: 'sarif'
+          output: 'backend-trivy-results.sarif'
+
+      # Step 8.3: Upload backend vulnerability scan results
+      - name: Upload Backend Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'backend-trivy-results.sarif'
+          category: 'backend-image-scan'
+
+      # Step 8.4: Generate SBOM for frontend image
+      - name: Generate Frontend SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/sq-qb-frontend:${{ github.sha }}
+          format: spdx-json
+          output-file: frontend-sbom.spdx.json
+
+      # Step 8.5: Scan frontend image for vulnerabilities
+      - name: Scan Frontend Image for Vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/sq-qb-frontend:${{ github.sha }}
+          format: 'sarif'
+          output: 'frontend-trivy-results.sarif'
+
+      # Step 8.6: Upload frontend vulnerability scan results
+      - name: Upload Frontend Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'frontend-trivy-results.sarif'
+          category: 'frontend-image-scan'
+
+      # Step 8.7: Upload SBOMs as artifacts
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom-reports-${{ github.sha }}
+          path: |
+            backend-sbom.spdx.json
+            frontend-sbom.spdx.json
+          retention-days: 90
+
+      # Step 8.8: Fail on critical vulnerabilities (optional - adjust as needed)
+      - name: Check for Critical Vulnerabilities
+        run: |
+          echo "Checking for critical vulnerabilities..."
+
+          # Check backend scan results
+          if grep -q '"severity": "CRITICAL"' backend-trivy-results.sarif; then
+            echo "⚠️ Critical vulnerabilities found in backend image"
+            echo "Please review the security tab for details"
+            # Uncomment the following line to fail the build on critical vulnerabilities
+            # exit 1
+          fi
+
+          # Check frontend scan results
+          if grep -q '"severity": "CRITICAL"' frontend-trivy-results.sarif; then
+            echo "⚠️ Critical vulnerabilities found in frontend image"
+            echo "Please review the security tab for details"
+            # Uncomment the following line to fail the build on critical vulnerabilities
+            # exit 1
+          fi
+
+          echo "✅ Security scan completed"
 
       # Step 9: Update docker-compose.prod.yml with specific image tags
       - name: Update production compose file
@@ -108,6 +194,12 @@ jobs:
           echo "### Docker Images Published" >> $GITHUB_STEP_SUMMARY
           echo "- **Backend**: \`${{ secrets.DOCKERHUB_USERNAME }}/sq-qb-backend:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Frontend**: \`${{ secrets.DOCKERHUB_USERNAME }}/sq-qb-frontend:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Security Scanning Completed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ SBOM (Software Bill of Materials) generated for both images" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Vulnerability scanning completed with Trivy" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Results uploaded to GitHub Security tab" >> $GITHUB_STEP_SUMMARY
+          echo "- 📋 SBOM artifacts available in workflow artifacts" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Deployment Commands" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY

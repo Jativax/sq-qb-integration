@@ -6,6 +6,7 @@ import config from '../config';
 export class QueueService {
   private queue: Queue;
   private systemQueue: Queue;
+  private deadLetterQueue: Queue;
 
   constructor() {
     // Initialize BullMQ queue with Redis connection
@@ -21,7 +22,7 @@ export class QueueService {
       defaultJobOptions: {
         removeOnComplete: 10, // Keep last 10 completed jobs
         removeOnFail: 50, // Keep last 50 failed jobs
-        attempts: 3, // Retry failed jobs up to 3 times
+        attempts: 5, // Retry failed jobs up to 5 times
         backoff: {
           type: 'exponential',
           delay: 2000, // Start with 2 second delay, exponentially increase
@@ -43,23 +44,91 @@ export class QueueService {
       },
     });
     logger.info('System jobs queue initialized');
+
+    // Initialize dead letter queue for permanently failed jobs
+    this.deadLetterQueue = new Queue('dead-letter-queue', {
+      connection: {
+        host: config.REDIS_HOST,
+        port: config.REDIS_PORT,
+        ...(config.REDIS_PASSWORD && {
+          password: config.REDIS_PASSWORD,
+        }),
+        db: config.REDIS_DB,
+      },
+      defaultJobOptions: {
+        removeOnComplete: 100, // Keep more completed DLQ jobs for analysis
+        removeOnFail: 100,
+        attempts: 1, // No retries in DLQ
+      },
+    });
+    logger.info('Dead letter queue initialized');
+  }
+
+  /**
+   * Get retry configuration based on error type
+   */
+  private getRetryConfig(errorType?: 'client' | 'server' | 'network') {
+    switch (errorType) {
+      case 'client':
+        // 4xx errors - likely won't succeed on retry, fewer attempts
+        return {
+          attempts: 2,
+          backoff: {
+            type: 'fixed' as const,
+            delay: 5000, // 5 seconds
+          },
+        };
+      case 'network':
+        // Network errors - more aggressive retries
+        return {
+          attempts: 8,
+          backoff: {
+            type: 'exponential' as const,
+            delay: 1000, // Start with 1 second
+          },
+        };
+      case 'server':
+      default:
+        // 5xx errors or unknown - standard retry policy
+        return {
+          attempts: 5,
+          backoff: {
+            type: 'exponential' as const,
+            delay: 2000, // Start with 2 seconds
+          },
+        };
+    }
   }
 
   /**
    * Add a new order processing job to the queue
    */
-  async addOrderJob(payload: SquareWebhookPayload): Promise<string> {
+  async addOrderJob(
+    payload: SquareWebhookPayload,
+    options?: {
+      priority?: number;
+      delay?: number;
+      errorType?: 'client' | 'server' | 'network';
+    }
+  ): Promise<string> {
     const jobId = `order-${payload.data.id}-${Date.now()}`;
+    const retryConfig = this.getRetryConfig(options?.errorType);
 
     const job = await this.queue.add('process-order', payload, {
       jobId,
-      priority: 1, // Higher priority for order processing
-      delay: 0, // Process immediately
+      priority: options?.priority ?? 1, // Higher priority for order processing
+      delay: options?.delay ?? 0, // Process immediately
+      ...retryConfig,
     });
 
     logger.info(
-      { jobId: job.id, orderId: payload.data.id },
-      'Order job queued'
+      {
+        jobId: job.id,
+        orderId: payload.data.id,
+        attempts: retryConfig.attempts,
+        errorType: options?.errorType,
+      },
+      'Order job queued with retry policy'
     );
     return job.id as string;
   }
@@ -174,10 +243,120 @@ export class QueueService {
   }
 
   /**
+   * Move a permanently failed job to the dead letter queue
+   */
+  async moveToDeadLetterQueue(
+    failedJob: {
+      id: string;
+      queueName: string;
+      data: unknown;
+      attemptsMade: number;
+      failedReason?: string;
+    },
+    reason: string
+  ): Promise<string> {
+    const dlqJobId = `dlq-${failedJob.id}-${Date.now()}`;
+
+    const dlqJob = await this.deadLetterQueue.add(
+      'dead-letter',
+      {
+        originalJobId: failedJob.id,
+        originalQueue: failedJob.queueName,
+        originalData: failedJob.data,
+        failureReason: reason,
+        originalAttempts: failedJob.attemptsMade,
+        failedAt: new Date().toISOString(),
+        lastError: failedJob.failedReason,
+      },
+      {
+        jobId: dlqJobId,
+      }
+    );
+
+    logger.error(
+      {
+        dlqJobId: dlqJob.id,
+        originalJobId: failedJob.id,
+        reason,
+        attempts: failedJob.attemptsMade,
+      },
+      'Job moved to dead letter queue'
+    );
+
+    return dlqJob.id as string;
+  }
+
+  /**
+   * Get dead letter queue statistics
+   */
+  async getDeadLetterStats(): Promise<{
+    waiting: number;
+    active: number;
+    completed: number;
+    failed: number;
+  }> {
+    const [waiting, active, completed, failed] = await Promise.all([
+      this.deadLetterQueue.getWaiting(),
+      this.deadLetterQueue.getActive(),
+      this.deadLetterQueue.getCompleted(),
+      this.deadLetterQueue.getFailed(),
+    ]);
+
+    return {
+      waiting: waiting.length,
+      active: active.length,
+      completed: completed.length,
+      failed: failed.length,
+    };
+  }
+
+  /**
+   * Retry a job from the dead letter queue
+   * Useful for manual intervention after fixing underlying issues
+   */
+  async retryFromDeadLetterQueue(dlqJobId: string): Promise<string | null> {
+    try {
+      const dlqJob = await this.deadLetterQueue.getJob(dlqJobId);
+      if (!dlqJob) {
+        logger.warn({ dlqJobId }, 'Dead letter queue job not found');
+        return null;
+      }
+
+      const originalData = dlqJob.data.originalData;
+
+      // Re-queue with standard retry policy
+      const newJobId = await this.addOrderJob(originalData);
+
+      // Mark DLQ job as completed
+      await dlqJob.moveToCompleted(
+        {
+          retriedAt: new Date().toISOString(),
+          newJobId,
+        },
+        dlqJob.token || ''
+      );
+
+      logger.info({ dlqJobId, newJobId }, 'Job retried from dead letter queue');
+
+      return newJobId;
+    } catch (error) {
+      logger.error(
+        { err: error, dlqJobId },
+        'Error retrying job from dead letter queue'
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Graceful shutdown of the queue
    */
   async close(): Promise<void> {
-    await this.queue.close();
+    await Promise.all([
+      this.queue.close(),
+      this.systemQueue.close(),
+      this.deadLetterQueue.close(),
+    ]);
     logger.info('QueueService closed');
   }
 }

@@ -1,0 +1,190 @@
+# Prometheus alerting rules for SQ-QB Integration
+groups:
+  - name: sqqb_application
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(api_request_duration_seconds_count{code=~"5.."}[5m]) /
+            rate(api_request_duration_seconds_count[5m])
+          ) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: sq-qb-integration
+          component: backend
+        annotations:
+          summary: 'High 5xx error rate detected'
+          description: '5xx error rate is {{ $value | humanizePercentage }} over the last 10 minutes (threshold: 5%)'
+          runbook_url: 'https://github.com/Jativax/sq-qb-integration/wiki/Runbook-HighErrorRate'
+
+      - alert: CriticalErrorRate
+        expr: |
+          (
+            rate(api_request_duration_seconds_count{code=~"5.."}[5m]) /
+            rate(api_request_duration_seconds_count[5m])
+          ) > 0.20
+        for: 5m
+        labels:
+          severity: critical
+          service: sq-qb-integration
+          component: backend
+        annotations:
+          summary: 'Critical 5xx error rate detected'
+          description: '5xx error rate is {{ $value | humanizePercentage }} over the last 5 minutes (threshold: 20%)'
+          runbook_url: 'https://github.com/Jativax/sq-qb-integration/wiki/Runbook-CriticalErrorRate'
+
+      - alert: QueueBacklog
+        expr: bullmq_queue_depth{status="waiting"} > 100
+        for: 15m
+        labels:
+          severity: warning
+          service: sq-qb-integration
+          component: queue
+        annotations:
+          summary: 'Queue backlog detected'
+          description: 'Queue has {{ $value }} waiting jobs for more than 15 minutes (threshold: 100)'
+          runbook_url: 'https://github.com/Jativax/sq-qb-integration/wiki/Runbook-QueueBacklog'
+
+      - alert: CriticalQueueBacklog
+        expr: bullmq_queue_depth{status="waiting"} > 500
+        for: 5m
+        labels:
+          severity: critical
+          service: sq-qb-integration
+          component: queue
+        annotations:
+          summary: 'Critical queue backlog detected'
+          description: 'Queue has {{ $value }} waiting jobs for more than 5 minutes (threshold: 500)'
+          runbook_url: 'https://github.com/Jativax/sq-qb-integration/wiki/Runbook-CriticalQueueBacklog'
+
+      - alert: BackendP95Latency
+        expr: |
+          histogram_quantile(0.95, 
+            rate(api_request_duration_seconds_bucket[5m])
+          ) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: sq-qb-integration
+          component: backend
+        annotations:
+          summary: 'High P95 latency detected'
+          description: 'P95 latency is {{ $value }}s over the last 10 minutes (threshold: 800ms)'
+          runbook_url: 'https://github.com/Jativax/sq-qb-integration/wiki/Runbook-HighLatency'
+
+      - alert: BackendP99Latency
+        expr: |
+          histogram_quantile(0.99, 
+            rate(api_request_duration_seconds_bucket[5m])
+          ) > 2.0
+        for: 5m
+        labels:
+          severity: critical
+          service: sq-qb-integration
+          component: backend
+        annotations:
+          summary: 'Critical P99 latency detected'
+          description: 'P99 latency is {{ $value }}s over the last 5 minutes (threshold: 2s)'
+          runbook_url: 'https://github.com/Jativax/sq-qb-integration/wiki/Runbook-CriticalLatency'
+
+  - name: sqqb_infrastructure
+    rules:
+      - alert: DatabaseConnectionFailure
+        expr: up{job="sq-qb-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: sq-qb-integration
+          component: database
+        annotations:
+          summary: 'Backend service is down'
+          description: 'Backend service has been down for more than 2 minutes'
+          runbook_url: 'https://github.com/Jativax/sq-qb-integration/wiki/Runbook-ServiceDown'
+
+      - alert: MemoryUsageHigh
+        expr: |
+          (
+            process_resident_memory_bytes{job="sq-qb-backend"} / 
+            (1024 * 1024 * 1024)
+          ) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: sq-qb-integration
+          component: backend
+        annotations:
+          summary: 'High memory usage detected'
+          description: 'Memory usage is {{ $value | humanize }}GB for more than 10 minutes (threshold: 800MB)'
+          runbook_url: 'https://github.com/Jativax/sq-qb-integration/wiki/Runbook-HighMemory'
+
+      - alert: FailedJobsAccumulating
+        expr: bullmq_queue_depth{status="failed"} > 50
+        for: 30m
+        labels:
+          severity: warning
+          service: sq-qb-integration
+          component: queue
+        annotations:
+          summary: 'Failed jobs accumulating'
+          description: '{{ $value }} failed jobs have been accumulating for more than 30 minutes (threshold: 50)'
+          runbook_url: 'https://github.com/Jativax/sq-qb-integration/wiki/Runbook-FailedJobs'
+
+      - alert: WebhookProcessingStalled
+        expr: |
+          increase(webhook_requests_total[30m]) == 0 
+          and 
+          time() - webhook_last_processed_timestamp > 1800
+        for: 15m
+        labels:
+          severity: warning
+          service: sq-qb-integration
+          component: webhooks
+        annotations:
+          summary: 'Webhook processing appears stalled'
+          description: 'No webhooks processed in the last 30 minutes, but none received either. Check webhook endpoint health.'
+          runbook_url: 'https://github.com/Jativax/sq-qb-integration/wiki/Runbook-WebhookStalled'
+
+  - name: sqqb_business_logic
+    rules:
+      - alert: SquareQuickBooksSyncFailureRate
+        expr: |
+          (
+            rate(sync_job_results_total{status="failed"}[30m]) /
+            rate(sync_job_results_total[30m])
+          ) > 0.10
+        for: 20m
+        labels:
+          severity: warning
+          service: sq-qb-integration
+          component: sync
+        annotations:
+          summary: 'High Square-QuickBooks sync failure rate'
+          description: 'Sync failure rate is {{ $value | humanizePercentage }} over the last 20 minutes (threshold: 10%)'
+          runbook_url: 'https://github.com/Jativax/sq-qb-integration/wiki/Runbook-SyncFailures'
+
+      - alert: WebhookAuthenticationFailures
+        expr: |
+          rate(webhook_requests_total{status="unauthorized"}[15m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          service: sq-qb-integration
+          component: security
+        annotations:
+          summary: 'Webhook authentication failures detected'
+          description: '{{ $value }} unauthorized webhook requests per second over the last 10 minutes'
+          runbook_url: 'https://github.com/Jativax/sq-qb-integration/wiki/Runbook-AuthFailures'
+
+      - alert: ReconciliationJobMissing
+        expr: |
+          (time() - reconciliation_last_run_timestamp) > 7200
+        for: 0m
+        labels:
+          severity: warning
+          service: sq-qb-integration
+          component: reconciliation
+        annotations:
+          summary: 'Reconciliation job has not run recently'
+          description: 'Last reconciliation job ran {{ $value | humanizeDuration }} ago (expected: every hour)'
+          runbook_url: 'https://github.com/Jativax/sq-qb-integration/wiki/Runbook-MissingReconciliation'

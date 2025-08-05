@@ -55,9 +55,27 @@ const configSchema = z.object({
     .string()
     .min(16, 'PASSWORD_PEPPER is required and must be at least 16 characters'),
 
+  // CORS Configuration
+  CORS_ORIGIN: z.string().optional(),
+  CORS_CREDENTIALS: z.coerce.boolean().default(false),
+
+  // Rate Limiting
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000), // 15 minutes
+  RATE_LIMIT_MAX_REQUESTS: z.coerce.number().default(100), // per window
+  WEBHOOK_RATE_LIMIT_MAX: z.coerce.number().default(300), // per window for webhooks
+
+  // Access Logging
+  ACCESS_LOG_SAMPLING_RATE: z.coerce.number().min(0).max(1).default(1), // 1 = log all, 0.1 = log 10%
+  ACCESS_LOG_INCLUDE_BODY: z.coerce.boolean().default(false), // Include request/response bodies
+
   // Testing Configuration (optional)
   FORCE_QB_FAILURE: z.string().optional(),
 });
+
+// Health check endpoints constants
+export const HEALTH_PATH = '/health';
+export const READY_PATH = '/ready';
+export const METRICS_PATH = '/metrics';
 
 // Export the configuration type for use throughout the application
 export type Config = z.infer<typeof configSchema>;
@@ -319,5 +337,12 @@ export const {
   QB_ENVIRONMENT,
   WORKER_CONCURRENCY,
   PASSWORD_PEPPER,
+  CORS_ORIGIN,
+  CORS_CREDENTIALS,
+  RATE_LIMIT_WINDOW_MS,
+  RATE_LIMIT_MAX_REQUESTS,
+  WEBHOOK_RATE_LIMIT_MAX,
+  ACCESS_LOG_SAMPLING_RATE,
+  ACCESS_LOG_INCLUDE_BODY,
   FORCE_QB_FAILURE,
 } = config;

@@ -9,6 +9,8 @@ import { QueueService } from '../services/queueService';
 import { webhookMetricsMiddleware } from '../middleware/metricsMiddleware';
 import logger from '../services/logger';
 import { SecurityService } from '../services/securityService';
+import { webhookDeduplicationService } from '../services/webhookDeduplicationService';
+import { webhookAccessLogMiddleware } from '../middleware/accessLogMiddleware';
 
 const securityService = new SecurityService();
 
@@ -22,6 +24,7 @@ const router: any = express.Router();
  */
 router.post(
   '/square',
+  webhookAccessLogMiddleware,
   webhookMetricsMiddleware('square'),
   async (req: express.Request, res: express.Response) => {
     try {
@@ -70,40 +73,54 @@ router.post(
           eventType: validatedPayload.type,
           orderId: validatedPayload.data.id,
           merchantId: validatedPayload.merchant_id,
+          eventId: validatedPayload.event_id,
         },
         'Webhook validation passed'
       );
 
-      // Initialize queue service and add job for background processing
-      const queueService = new QueueService();
+      // Process webhook with deduplication
+      const result = await webhookDeduplicationService.handleWithDeduplication(
+        validatedPayload.event_id,
+        validatedPayload.type,
+        async () => {
+          // Initialize queue service and add job for background processing
+          const queueService = new QueueService();
 
-      try {
-        // Add the webhook payload to the processing queue
-        const jobId = await queueService.addOrderJob(validatedPayload);
+          // Add the webhook payload to the processing queue
+          const jobId = await queueService.addOrderJob(validatedPayload);
 
-        logger.info({ jobId }, 'Order processing job queued');
+          logger.info(
+            { jobId, eventId: validatedPayload.event_id },
+            'Order processing job queued'
+          );
 
-        // Return 202 Accepted as per OpenAPI spec
-        res.status(202).json({
-          status: 'accepted',
-          message: 'Webhook received and queued for processing',
-          jobId,
+          return {
+            jobId,
+            orderId: validatedPayload.data.id,
+            eventId: validatedPayload.event_id,
+          };
+        }
+      );
+
+      if (result === null) {
+        // Duplicate webhook - return 200 OK but indicate it was already processed
+        res.status(200).json({
+          status: 'duplicate',
+          message: 'Webhook event already processed',
+          eventId: validatedPayload.event_id,
           orderId: validatedPayload.data.id,
-        });
-      } catch (queueError) {
-        logger.error(
-          { err: queueError },
-          'Failed to queue order processing job'
-        );
-
-        // Return 500 if we can't queue the job
-        res.status(500).json({
-          error: 'Internal Server Error',
-          message: 'Failed to queue order for processing',
-          code: 'QUEUE_ERROR',
         });
         return;
       }
+
+      // Return 202 Accepted as per OpenAPI spec
+      res.status(202).json({
+        status: 'accepted',
+        message: 'Webhook received and queued for processing',
+        jobId: result.jobId,
+        orderId: result.orderId,
+        eventId: result.eventId,
+      });
     } catch (error) {
       logger.error({ err: error }, 'Webhook processing error');
 
