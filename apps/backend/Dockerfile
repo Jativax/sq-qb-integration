@@ -24,7 +24,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store/v3 \
 COPY apps/backend/ ./apps/backend/
 
 # ⚠️ Genera Prisma de forma explícita (apunta al schema del backend)
-RUN pnpm --filter backend exec prisma generate --schema apps/backend/prisma/schema.prisma
+RUN pnpm --filter backend exec prisma generate --schema prisma/schema.prisma
 
 # Compila TypeScript del backend
 RUN pnpm --filter backend build

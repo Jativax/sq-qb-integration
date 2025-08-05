@@ -107,7 +107,7 @@ app.get(HEALTH_PATH, (req, res) => {
     });
   }
 
-  res.status(200).json({
+  return res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
@@ -151,7 +151,7 @@ app.get(READY_PATH, async (req, res) => {
   const allReady = Object.values(checks).every(Boolean);
   const status = allReady ? 200 : 503;
 
-  res.status(status).json({
+  return res.status(status).json({
     status: allReady ? 'ready' : 'not_ready',
     timestamp: new Date().toISOString(),
     checks,

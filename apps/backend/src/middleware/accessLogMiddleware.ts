@@ -9,7 +9,8 @@ import config, {
  * Access logging middleware using pino-http with sampling and security considerations
  */
 export const accessLogMiddleware = pinoHttp({
-  logger,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  logger: logger as any, // Type workaround for pino-http compatibility
 
   // Sampling for production environments
   autoLogging: {
@@ -154,7 +155,8 @@ function sanitizeRequestBody(body: unknown): unknown {
  * Middleware for webhook-specific access logging with enhanced context
  */
 export const webhookAccessLogMiddleware = pinoHttp({
-  logger,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  logger: logger as any, // Type workaround for pino-http compatibility
 
   serializers: {
     req: req => ({
@@ -171,9 +173,12 @@ export const webhookAccessLogMiddleware = pinoHttp({
         'content-length': req.headers?.['content-length'],
       },
       // Include webhook-specific metadata
-      webhookType: req.body?.type,
-      eventId: req.body?.event_id,
-      merchantId: req.body?.merchant_id,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      webhookType: (req as any).body?.type,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      eventId: (req as any).body?.event_id,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      merchantId: (req as any).body?.merchant_id,
     }),
 
     res: res => ({
@@ -194,8 +199,10 @@ export const webhookAccessLogMiddleware = pinoHttp({
   },
 
   customSuccessMessage: function (req, res) {
-    const eventType = req.body?.type || 'unknown';
-    const eventId = req.body?.event_id || 'no-id';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const body = (req as any).body; // Type workaround for Express req.body
+    const eventType = body?.type || 'unknown';
+    const eventId = body?.event_id || 'no-id';
     const duration = res.getHeader('x-response-time') || 0;
     return `Webhook ${eventType} (${eventId}) processed - ${res.statusCode} - ${duration}ms`;
   },
