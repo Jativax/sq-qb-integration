@@ -23,23 +23,23 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store/v3 \
 # Copia código backend (incluye prisma/)
 COPY apps/backend/ ./apps/backend/
 
-# ⚠️ Genera Prisma de forma explícita (apunta al schema del backend)
+# Generate Prisma Client (already correct)
 RUN pnpm --filter backend exec prisma generate --schema prisma/schema.prisma
 
-# Compila TypeScript del backend (incluye seed.ts)
-RUN pnpm --filter backend build
+# Build backend + seed (explicit)
+RUN pnpm --filter backend run build \
+ && pnpm --filter backend run build:seed
 
 # Assert seed output exists
-RUN ls -la apps/backend/dist/prisma/ && \
-    test -f apps/backend/dist/prisma/seed.js
+RUN test -f apps/backend/dist/prisma/seed.js
 
 # Usa pnpm deploy para crear artefactos autocontenidos
 RUN pnpm --filter backend deploy --prod /app/deploy
 
 # Produce a flat deploy at /app/deploy that matches verifier expectations
-RUN mkdir -p /app/deploy/dist/prisma /app/deploy/prisma && \
-    cp -r apps/backend/dist/* /app/deploy/dist/ && \
-    cp -r apps/backend/prisma/* /app/deploy/prisma/
+RUN mkdir -p /app/deploy/prisma /app/deploy/dist/prisma \
+ && cp -r apps/backend/prisma/* /app/deploy/prisma/ \
+ && cp apps/backend/dist/prisma/seed.js /app/deploy/dist/prisma/
 
 # Etapa runtime mínima
 FROM node:18.20-alpine3.19 AS production

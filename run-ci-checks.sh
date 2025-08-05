@@ -81,17 +81,9 @@ echo "✅ All infrastructure services are healthy"
 echo "ℹ️  Verifying app contents in container..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner sh -lc "
   set -euo pipefail
-  echo \"PWD: \$(pwd)\"
-  echo '== Contents of /app =='
-  ls -la
-  echo '== prisma/ =='
-  ls -la prisma || true
-  echo '== dist/prisma/ =='
-  ls -la dist/prisma || true
-  echo '== resolve(@prisma/client) =='
-  node -e \"console.log(require.resolve('@prisma/client'))\" || { echo '❌ @prisma/client not resolvable'; exit 1; }
-  test -f prisma/schema.prisma || { echo '❌ prisma/schema.prisma missing'; exit 1; }
-  test -f dist/prisma/seed.js || { echo '❌ dist/prisma/seed.js missing'; exit 1; }
+  node -e \"console.log(require.resolve('@prisma/client'))\"
+  test -f /app/dist/prisma/seed.js
+  test -f /app/prisma/schema.prisma
   echo '✅ All required files present'
 "
 
