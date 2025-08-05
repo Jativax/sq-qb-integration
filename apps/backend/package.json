@@ -3,6 +3,13 @@
   "version": "1.0.0",
   "description": "Backend application for SQ-QB Integration",
   "main": "dist/index.js",
+  "files": [
+    "dist",
+    "prisma"
+  ],
+  "prisma": {
+    "schema": "prisma/schema.prisma"
+  },
   "scripts": {
     "dev": "ts-node src/index.ts | pino-pretty",
     "build": "tsc",
@@ -17,7 +24,7 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:reset": "prisma migrate reset",
-    "migrate:deploy": "prisma migrate deploy",
+    "migrate:deploy": "prisma migrate deploy --schema prisma/schema.prisma",
     "db:seed": "prisma db seed"
   },
   "dependencies": {
