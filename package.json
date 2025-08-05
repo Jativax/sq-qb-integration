@@ -18,7 +18,7 @@
     "test:e2e:headed": "cd packages/e2e-tests && npm run test:headed",
     "test:e2e:debug": "cd packages/e2e-tests && npm run test:debug",
     "test:e2e:install": "cd packages/e2e-tests && npm install && npm run install-browsers",
-    "prepare": "husky install",
+    "prepare": "node -e \"try { require('child_process').execSync('husky install') } catch (e) { console.log('husky install skipped') }\"",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
