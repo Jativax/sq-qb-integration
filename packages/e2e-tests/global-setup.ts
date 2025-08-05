@@ -14,14 +14,17 @@ async function globalSetup() {
 
   console.log(`⏳ Waiting for services to be ready...`);
   console.log(`   - Backend Health: ${backendUrl}/health`);
-  console.log(`   - Frontend: ${frontendUrl}`);
+  console.log(`   - Frontend Health: ${frontendUrl}/health`);
 
   try {
     await waitOn({
-      resources: [`${backendUrl}/health`, frontendUrl],
-      timeout: 180000, // 3-minute timeout for cold Docker starts in CI
-      interval: 3000, // Check every 3 seconds with backoff
-      validateStatus: status => status >= 200 && status < 300,
+      resources: [
+        'http-get://localhost:3001/health',
+        'http-get://localhost:5173/health',
+      ],
+      timeout: 120000, // 2-minute timeout for cold Docker starts in CI
+      interval: 2000, // Check every 2 seconds
+      validateStatus: status => status >= 200 && status < 400,
       window: 2000, // Wait for 2 seconds of consecutive success
     });
     console.log('✅ All services are ready!');
