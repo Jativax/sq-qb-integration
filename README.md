@@ -86,7 +86,7 @@ The backend will be available at `http://localhost:3001` and the frontend at `ht
 
 This project has undergone comprehensive modernization to ensure production-ready, scalable, and maintainable infrastructure. Below are the key improvements implemented:
 
-### **🔧 Latest CI/CD Pipeline Fixes (January 2025)**
+### **🔧 Latest CI/CD Pipeline Fixes (August 2025)**
 
 #### **Critical Docker & Containerization Fixes**
 
