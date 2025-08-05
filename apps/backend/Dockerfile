@@ -26,8 +26,11 @@ COPY apps/backend/ ./apps/backend/
 # ⚠️ Genera Prisma de forma explícita (apunta al schema del backend)
 RUN pnpm --filter backend exec prisma generate --schema prisma/schema.prisma
 
-# Compila TypeScript del backend
+# Compila TypeScript del backend (incluye seed.ts)
 RUN pnpm --filter backend build
+
+# Verifica que el seed.js fue compilado
+RUN ls -la apps/backend/dist/prisma/ || echo "dist/prisma directory not found"
 
 # Usa pnpm deploy para crear artefactos autocontenidos
 RUN pnpm --filter backend deploy --prod /app/deploy
@@ -36,9 +39,11 @@ RUN pnpm --filter backend deploy --prod /app/deploy
 RUN mkdir -p /app/deploy/prisma /app/deploy/dist/prisma && \
     cp -r apps/backend/prisma/* /app/deploy/prisma/ && \
     if [ -f apps/backend/dist/prisma/seed.js ]; then \
-      cp apps/backend/dist/prisma/seed.js /app/deploy/dist/prisma/; \
+      cp apps/backend/dist/prisma/seed.js /app/deploy/dist/prisma/ && \
+      echo "✅ seed.js copied successfully"; \
     else \
-      echo "Warning: seed.js not found, but continuing..."; \
+      echo "Warning: seed.js not found at apps/backend/dist/prisma/seed.js"; \
+      echo "Contents of apps/backend/dist/prisma/: $(ls -la apps/backend/dist/prisma/ 2>/dev/null || echo 'directory not found')"; \
     fi
 
 # Etapa runtime mínima
