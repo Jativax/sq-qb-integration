@@ -86,6 +86,52 @@ services:
     networks:
       - sq-qb-network
 
+  # Backend application service for E2E testing
+  backend:
+    build:
+      context: .
+      dockerfile: ./apps/backend/Dockerfile
+    container_name: sq-qb-backend
+    ports:
+      - '3001:3001'
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-sq_qb_user}:${POSTGRES_PASSWORD:-your_secure_password}@pgbouncer:6432/${POSTGRES_DB:-sq_qb_integration}?pgbouncer=true
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NODE_ENV=development
+      - PORT=3001
+      - SQUARE_ENVIRONMENT=sandbox
+      - QB_ENVIRONMENT=sandbox
+      - WORKER_CONCURRENCY=1
+      - PASSWORD_PEPPER=test_pepper_for_e2e
+      - SQUARE_WEBHOOK_SIGNATURE_KEY=test_signature_key
+    networks:
+      - sq-qb-network
+    profiles:
+      - e2e
+
+  # Frontend application service for E2E testing
+  frontend:
+    build:
+      context: .
+      dockerfile: ./apps/frontend/Dockerfile
+    container_name: sq-qb-frontend
+    ports:
+      - '5173:80'
+    depends_on:
+      - backend
+    networks:
+      - sq-qb-network
+    profiles:
+      - e2e
+
 volumes:
   pgdata:
   redisdata:

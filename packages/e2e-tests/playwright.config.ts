@@ -18,7 +18,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:5173',
+    baseURL: process.env.CI ? 'http://localhost:5173' : 'http://localhost:5173',
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
     /* Take screenshot on failure */
@@ -47,15 +47,8 @@ export default defineConfig({
   globalSetup: './global-setup.ts',
   globalTeardown: './global-teardown.ts',
 
-  /* Run your local dev server before starting the tests */
-  webServer: [
-    {
-      command: 'cd ../../ && npx pnpm dev:all',
-      port: 5173, // Frontend port
-      reuseExistingServer: !process.env.CI,
-      timeout: 120 * 1000, // 2 minutes for startup
-    },
-  ],
+  /* In CI, servers are managed by docker-compose in run-ci-checks.sh
+     In local development, run 'pnpm dev:all' manually before tests */
 
   /* Test timeout */
   timeout: 30 * 1000, // 30 seconds per test

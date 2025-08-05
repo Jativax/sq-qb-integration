@@ -73,6 +73,14 @@ docker compose run --rm backend_service_runner npx prisma migrate deploy --schem
 echo "ℹ️  Seeding the database..."
 docker compose run --rm backend_service_runner npx prisma db seed --schema=./apps/backend/prisma/schema.prisma
 
+# Start backend and frontend services for E2E testing
+echo "ℹ️  Starting backend and frontend services for E2E testing..."
+docker compose --profile e2e up -d backend frontend
+
+# Wait for services to be ready
+echo "ℹ️  Waiting for application services to be ready..."
+sleep 10
+
 # Run Playwright E2E tests
 echo "ℹ️  Running Playwright E2E tests against the live environment..."
 pnpm --filter e2e-tests test
