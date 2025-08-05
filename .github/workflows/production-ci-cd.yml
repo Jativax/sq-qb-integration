@@ -144,10 +144,26 @@ jobs:
           sarif_file: 'frontend-trivy-results.sarif'
           category: 'frontend-image-scan'
 
-      # Step 8.7: Upload SBOMs as artifacts
+      # Step 8.7: Generate Software Bill of Materials (SBOM)
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Generate SBOM reports
+        run: |
+          # Generate SBOM for backend application source
+          syft packages ./apps/backend -o spdx-json=backend-sbom.spdx.json
+
+          # Generate SBOM for frontend application source  
+          syft packages ./apps/frontend -o spdx-json=frontend-sbom.spdx.json
+
+          echo "✅ SBOM generation completed"
+          ls -la *-sbom.spdx.json
+
+      # Step 8.8: Upload SBOMs as artifacts
       - name: Upload SBOM artifacts
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && (hashFiles('backend-sbom.spdx.json') != '' || hashFiles('frontend-sbom.spdx.json') != '')
         with:
           name: sbom-reports-${{ github.sha }}
           path: |
@@ -155,7 +171,7 @@ jobs:
             frontend-sbom.spdx.json
           retention-days: 90
 
-      # Step 8.8: Fail on critical vulnerabilities (optional - adjust as needed)
+      # Step 8.9: Fail on critical vulnerabilities (optional - adjust as needed)
       - name: Check for Critical Vulnerabilities
         run: |
           echo "Checking for critical vulnerabilities..."
