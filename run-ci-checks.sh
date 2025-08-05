@@ -78,6 +78,28 @@ timeout 30s bash -c 'until nc -z localhost 6432; do sleep 2; done'
 echo "✅ All infrastructure services are healthy"
 
 # Apply database migrations and seeding INSIDE the Docker network
+echo "ℹ️  Verifying app contents in container..."
+docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
+  sh -c "
+    set -eu
+    pwd
+    echo '== /app =='
+    ls -la /app || true
+    echo '== /app/prisma =='
+    ls -la /app/prisma || true
+    test -f /app/prisma/schema.prisma && echo '✅ schema present' || (echo '❌ schema missing' && exit 1)
+  "
+
+echo "ℹ️  Verifying Prisma versions..."
+docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
+  sh -c "
+    set -eu
+    test -f /app/prisma/schema.prisma
+    npx -y prisma@5.1.1 -v | grep -q 'prisma/5.1.1'
+    node -e \"console.log(require('@prisma/client/package.json').version)\" | grep -q '^5\.1\.1'
+    echo '✅ Prisma CLI and Client versions verified'
+  "
+
 echo "ℹ️  Applying database migrations..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
   sh -c "cd /app && npx -y prisma@5.1.1 migrate deploy --schema /app/prisma/schema.prisma"

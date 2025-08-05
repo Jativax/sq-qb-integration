@@ -12,3 +12,7 @@ services:
       interval: 3s
       timeout: 2s
       retries: 40
+
+  # Fix: Clear volume mounts to prevent shadowing /app in CI
+  backend_service_runner:
+    volumes: [] # Remove the .:/app mount that shadows the built application
