@@ -112,11 +112,11 @@ docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_se
 
 echo "ℹ️  Applying database migrations..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
-  sh -c "npx -y prisma@5.1.1 migrate deploy --schema prisma/schema.prisma"
+  sh -c "pnpm exec prisma migrate deploy"
 
 echo "ℹ️  Seeding the database..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
-  sh -c "npx -y prisma@5.1.1 db seed --schema prisma/schema.prisma"
+  sh -c "pnpm exec prisma db seed"
 
 # Start backend and frontend services for E2E testing
 echo "ℹ️  Starting backend and frontend services for E2E testing..."

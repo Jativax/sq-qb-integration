@@ -4,8 +4,8 @@
   "description": "Backend application for SQ-QB Integration",
   "main": "dist/index.js",
   "files": [
-    "dist",
-    "prisma"
+    "dist/**",
+    "prisma/**"
   ],
   "prisma": {
     "schema": "prisma/schema.prisma",
