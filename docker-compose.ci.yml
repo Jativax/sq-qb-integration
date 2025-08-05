@@ -53,6 +53,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3001/health']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
     networks:
       - sq-qb-network
 
@@ -82,17 +88,17 @@ services:
         condition: service_healthy
       # Remove pgbouncer dependency
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://localhost:3001/health || exit 1']
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 10s
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3001/health']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
 
   # Add frontend healthcheck for CI
   frontend:
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://localhost/health || exit 1']
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 5s
+      test: ['CMD', 'wget', '-qO-', 'http://localhost/health']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s

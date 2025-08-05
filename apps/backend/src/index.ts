@@ -98,20 +98,16 @@ app.use(
   })
 );
 
-// Liveness probe - basic app availability
+// Liveness probe - basic app availability (must be ultra-reliable for Docker healthcheck)
 app.get(HEALTH_PATH, (req, res) => {
-  if (isShuttingDown) {
-    return res.status(503).json({
-      status: 'shutting_down',
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  return res.status(200).json({
-    status: 'healthy',
+  // Always return 200 OK unless explicitly shutting down
+  const status = isShuttingDown ? 503 : 200;
+  const responseBody = {
+    status: isShuttingDown ? 'shutting_down' : 'ok',
     timestamp: new Date().toISOString(),
-    version: '1.0.0',
-  });
+  };
+
+  res.status(status).json(responseBody);
 });
 
 // Readiness probe - validates all dependencies are ready

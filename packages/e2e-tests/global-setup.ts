@@ -17,20 +17,59 @@ async function globalSetup() {
   console.log(`   - Frontend Health: ${frontendUrl}/health`);
 
   try {
+    // Check if we're in CI environment
+    const isCI = process.env.CI === 'true' || process.env.NODE_ENV === 'test';
+
+    console.log(`Environment: ${isCI ? 'CI' : 'Local'}`);
+    console.log(`   - Backend Health: ${backendUrl}/health`);
+    console.log(`   - Frontend: ${frontendUrl}/`); // Check root instead of /health
+
     await waitOn({
       resources: [
         'http-get://localhost:3001/health',
-        'http-get://localhost:5173/health',
+        'http-get://localhost:5173/', // Check root instead of /health for frontend
       ],
-      timeout: 300000, // 5-minute timeout for cold Docker starts in CI
+      timeout: 180000, // 3 minutes for CI cold starts
       interval: 3000, // Check every 3 seconds
       validateStatus: status => status >= 200 && status < 400,
       window: 5000, // Wait for 5 seconds of consecutive success
-      log: true, // Enable detailed logging
+      verbose: true, // Enable detailed logging
+      headers: {
+        Accept: 'text/html,application/json',
+        'User-Agent': 'Playwright-E2E-Tests',
+      },
     });
     console.log('✅ All services are ready!');
   } catch (err) {
     console.error('❌ Services did not become ready in time:', err);
+
+    // Enhanced diagnostic commands
+    console.log('--- Checking service accessibility ---');
+    try {
+      console.log('Backend health check:');
+      execSync('curl -v http://localhost:3001/health || true', {
+        stdio: 'inherit',
+      });
+      console.log('Backend ready check:');
+      execSync('curl -v http://localhost:3001/ready || true', {
+        stdio: 'inherit',
+      });
+      console.log('Frontend root check:');
+      execSync('curl -v http://localhost:5173/ || true', { stdio: 'inherit' });
+      console.log('Frontend health check:');
+      execSync('curl -v http://localhost:5173/health || true', {
+        stdio: 'inherit',
+      });
+
+      console.log('--- Docker container status ---');
+      execSync(
+        'docker ps --filter name=sq-qb- --format "table {{.Names}}\\t{{.Status}}\\t{{.Ports}}"',
+        { stdio: 'inherit' }
+      );
+    } catch (e) {
+      console.log('Diagnostic commands failed:', e.message);
+    }
+
     console.error('--- Last 100 lines of backend logs ---');
     execSync('docker logs sq-qb-backend --tail 100', { stdio: 'inherit' });
     console.error('--- Last 100 lines of frontend logs ---');
