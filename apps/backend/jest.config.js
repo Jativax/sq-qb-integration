@@ -16,6 +16,7 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
+  setupFiles: ['<rootDir>/jest.setup.js'],
   moduleFileExtensions: ['ts', 'js', 'json'],
   verbose: true,
   clearMocks: true,
