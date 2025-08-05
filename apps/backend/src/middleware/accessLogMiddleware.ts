@@ -6,6 +6,20 @@ import config, {
 } from '../config';
 
 /**
+ * Safe header extraction for compatibility with test environments
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const safeGetHeader = (res: any, name: string) => {
+  try {
+    if (res && typeof res.getHeader === 'function') return res.getHeader(name);
+    if (res && res.headers && name in res.headers) return res.headers[name];
+  } catch {
+    /* ignore */
+  }
+  return undefined;
+};
+
+/**
  * Access logging middleware using pino-http with sampling and security considerations
  */
 export const accessLogMiddleware = pinoHttp({
@@ -184,8 +198,8 @@ export const webhookAccessLogMiddleware = pinoHttp({
     res: res => ({
       statusCode: res.statusCode,
       headers: {
-        'content-type': res.getHeader('content-type'),
-        'x-response-time': res.getHeader('x-response-time'),
+        'content-type': safeGetHeader(res, 'content-type'),
+        'x-response-time': safeGetHeader(res, 'x-response-time'),
       },
     }),
   },
@@ -203,7 +217,7 @@ export const webhookAccessLogMiddleware = pinoHttp({
     const body = (req as any).body; // Type workaround for Express req.body
     const eventType = body?.type || 'unknown';
     const eventId = body?.event_id || 'no-id';
-    const duration = res.getHeader('x-response-time') || 0;
+    const duration = safeGetHeader(res, 'x-response-time') || 0;
     return `Webhook ${eventType} (${eventId}) processed - ${res.statusCode} - ${duration}ms`;
   },
 });

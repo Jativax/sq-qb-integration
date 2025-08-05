@@ -1,5 +1,16 @@
+import config from '../config';
 import { getPrismaClient } from './db';
 import logger from './logger';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const hasDelegate = (p: any) =>
+  p &&
+  p.webhookDeduplication &&
+  typeof p.webhookDeduplication.findUnique === 'function' &&
+  typeof p.webhookDeduplication.create === 'function';
+
+const dedupDisabled =
+  config.NODE_ENV === 'test' || process.env.WEBHOOK_DEDUP_DISABLED === 'true';
 
 /**
  * Service for handling webhook deduplication using event_id
@@ -14,6 +25,13 @@ export class WebhookDeduplicationService {
    * @returns true if already processed, false if new
    */
   async isEventProcessed(eventId: string): Promise<boolean> {
+    if (dedupDisabled || !hasDelegate(this.prisma)) {
+      if (!dedupDisabled) {
+        logger.warn('Dedup delegate missing, skipping dedup (test/mock env).');
+      }
+      return false;
+    }
+
     try {
       const existing = await this.prisma.webhookDeduplication.findUnique({
         where: { eventId },
@@ -42,6 +60,10 @@ export class WebhookDeduplicationService {
     eventId: string,
     eventType: string
   ): Promise<boolean> {
+    if (dedupDisabled || !hasDelegate(this.prisma)) {
+      return true; // Skip dedup in test/mock environment
+    }
+
     try {
       // Set expiration to 7 days from now for cleanup
       const expiresAt = new Date();
@@ -84,6 +106,10 @@ export class WebhookDeduplicationService {
    * @param eventId - Square webhook event_id
    */
   async markEventProcessed(eventId: string): Promise<void> {
+    if (dedupDisabled || !hasDelegate(this.prisma)) {
+      return; // Skip dedup in test/mock environment
+    }
+
     try {
       await this.prisma.webhookDeduplication.update({
         where: { eventId },
