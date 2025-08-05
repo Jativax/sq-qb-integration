@@ -137,7 +137,8 @@ docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci
 
 # Start backend and frontend services for E2E testing
 echo "ℹ️  Starting backend and frontend services for E2E testing..."
-docker compose -f docker-compose.yml -f docker-compose.ci.yml --profile e2e up -d backend frontend
+# Use --no-deps to avoid starting PgBouncer dependency
+docker compose -f docker-compose.yml -f docker-compose.ci.yml --profile e2e up -d --no-deps backend frontend
 
 # Wait for application services to be ready using health checks
 echo "ℹ️  Waiting for application services to be ready..."
