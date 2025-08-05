@@ -1,56 +1,51 @@
-import { FullConfig } from '@playwright/test';
+// packages/e2e-tests/global-setup.ts
+import { execSync } from 'child_process';
+import waitOn from 'wait-on';
 
-async function globalSetup(_config: FullConfig) {
+async function globalSetup() {
   console.log('🚀 Starting E2E test global setup...');
 
-  // Wait for backend to be ready
-  await waitForBackend();
+  // 1. Define service URLs
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-  // Clear test data
-  await clearTestData();
+  console.log(`⏳ Waiting for services to be ready...`);
+  console.log(`   - Backend: ${backendUrl}`);
+  console.log(`   - Frontend: ${frontendUrl}`);
 
-  console.log('✅ E2E test global setup completed');
-}
-
-async function waitForBackend(maxRetries = 30, delay = 2000) {
-  console.log('⏳ Waiting for backend to be ready...');
-
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const response = await fetch('http://localhost:3001/');
-      if (response.ok) {
-        console.log('✅ Backend is ready');
-        return;
-      }
-    } catch (error) {
-      // Backend not ready, wait and retry
-    }
-
-    console.log(`⏳ Backend not ready, retrying... (${i + 1}/${maxRetries})`);
-    await new Promise(resolve => setTimeout(resolve, delay));
+  // 2. Use wait-on to poll for service health
+  try {
+    await waitOn({
+      resources: [
+        `${backendUrl}/`, // Backend health check endpoint
+        frontendUrl, // Frontend server
+      ],
+      timeout: 120000, // 2-minute timeout
+      interval: 2000, // Check every 2 seconds
+      validateStatus: status => status >= 200 && status < 300, // health check should return 2xx
+    });
+    console.log('✅ All services are ready!');
+  } catch (err) {
+    console.error('❌ Services did not become ready in time:', err);
+    // On failure, print the backend logs for immediate diagnosis
+    console.error('--- Last 100 lines of backend logs ---');
+    execSync('docker logs sq-qb-backend --tail 100', { stdio: 'inherit' });
+    throw new Error('Service readiness check failed.');
   }
 
-  throw new Error('❌ Backend failed to start within timeout period');
-}
-
-async function clearTestData() {
+  // 3. Clear test data before running tests
   console.log('🧹 Clearing test data...');
-
   try {
-    // Clear Redis queue and database through test endpoint
-    const response = await fetch('http://localhost:3001/api/test/clear', {
+    const response = await fetch(`${backendUrl}/api/test/clear`, {
       method: 'POST',
     });
-
     if (!response.ok) {
-      console.warn(
-        '⚠️ Test clear endpoint not available - manual cleanup may be needed'
-      );
-    } else {
-      console.log('✅ Test data cleared successfully');
+      throw new Error(`Failed to clear test data: ${response.statusText}`);
     }
-  } catch (error) {
-    console.warn('⚠️ Failed to clear test data:', error);
+    console.log('✅ Test data cleared successfully.');
+  } catch (err) {
+    console.error('❌ Failed to clear test data:', err);
+    throw new Error('Test data clearing failed.');
   }
 }
 

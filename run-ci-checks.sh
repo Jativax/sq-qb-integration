@@ -81,9 +81,16 @@ docker compose --profile e2e up -d backend frontend
 echo "ℹ️  Waiting for application services to be ready..."
 sleep 10
 
-# Run Playwright E2E tests
+# Run Playwright E2E tests, and if they fail, print Docker logs
 echo "ℹ️  Running Playwright E2E tests against the live environment..."
-pnpm --filter e2e-tests test
+if ! pnpm --filter @sq-qb-integration/e2e-tests test; then
+  echo "❌ E2E tests failed. Dumping logs for debugging..."
+  echo "--- Backend Logs ---"
+  docker logs sq-qb-backend --tail 200 || true
+  echo "--- Frontend Logs ---"
+  docker logs sq-qb-frontend --tail 100 || true
+  exit 1
+fi
 
 success "All E2E tests passed"
 echo "=================================================================="

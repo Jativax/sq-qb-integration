@@ -22,8 +22,8 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 # Copy the rest of the frontend source code
 COPY apps/frontend/ ./apps/frontend/
 
-# Build the frontend application
-RUN pnpm --filter @sq-qb-integration/frontend build
+# Build the frontend application using a path-based filter
+RUN pnpm --filter ./apps/frontend build
 
 
 # ---- Production Stage ----
