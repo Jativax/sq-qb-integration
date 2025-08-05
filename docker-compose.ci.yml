@@ -1,0 +1,16 @@
+version: '3.9'
+
+# CI-specific overrides for testing
+# This file extends docker-compose.yml with CI-specific configurations
+services:
+  pgbouncer:
+    ports:
+      - '6432:6432' # Expose PgBouncer port to host for CI testing
+    environment:
+      PGBOUNCER_LISTEN_ADDR: '0.0.0.0' # For bitnami-style images
+      LISTEN_ADDR: '0.0.0.0' # For edoburu-style images (current)
+    healthcheck:
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 6432 || exit 1']
+      interval: 3s
+      timeout: 2s
+      retries: 40

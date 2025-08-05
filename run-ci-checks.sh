@@ -65,7 +65,7 @@ step "5" "End-to-End Test Execution" "This step requires Docker environment and 
 
 # Start Docker services
 echo "ℹ️  Starting Docker services (PostgreSQL, Redis, PgBouncer)..."
-pnpm docker:up
+pnpm docker:up:ci
 
 # Wait for services to be healthy using Docker health checks
 echo "ℹ️  Waiting for services to be healthy..."
@@ -74,7 +74,7 @@ timeout 60s bash -c 'until docker compose exec -T db pg_isready -U "${POSTGRES_U
 echo "ℹ️  Checking Redis health..."
 timeout 30s bash -c 'until docker compose exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
 echo "ℹ️  Checking PgBouncer health..."
-timeout 30s bash -c 'until docker compose exec -T pgbouncer pg_isready -h localhost -p 6432 -U "${POSTGRES_USER:-sq_qb_user}"; do sleep 2; done'
+timeout 30s bash -c 'until nc -z localhost 6432; do sleep 2; done'
 echo "✅ All infrastructure services are healthy"
 
 # Apply database migrations and seeding INSIDE the Docker network

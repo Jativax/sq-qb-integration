@@ -55,23 +55,12 @@ services:
       - POOL_MODE=transaction
       - MAX_CLIENT_CONN=100
       - DEFAULT_POOL_SIZE=20
-      - LISTEN_ADDR=0.0.0.0 # Enable external connections for CI testing
-    ports:
-      - '6432:6432'
+    # Note: Port exposure and LISTEN_ADDR configured in docker-compose.ci.yml for CI testing
     depends_on:
       db:
         condition: service_healthy
     networks:
       - sq-qb-network
-    healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'pg_isready -h 127.0.0.1 -p 6432 -U ${POSTGRES_USER:-sq_qb_user} || exit 1',
-        ]
-      interval: 5s
-      timeout: 3s
-      retries: 30
 
   # New service for running one-off commands like migrations and seeding
   backend_service_runner:
