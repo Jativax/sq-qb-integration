@@ -19,9 +19,10 @@ async function globalSetup() {
   try {
     await waitOn({
       resources: [`${backendUrl}/health`, frontendUrl],
-      timeout: 120000,
-      interval: 2000,
+      timeout: 180000, // 3-minute timeout for cold Docker starts in CI
+      interval: 3000, // Check every 3 seconds with backoff
       validateStatus: status => status >= 200 && status < 300,
+      window: 2000, // Wait for 2 seconds of consecutive success
     });
     console.log('✅ All services are ready!');
   } catch (err) {

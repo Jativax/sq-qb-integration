@@ -1,5 +1,5 @@
 # Etapa base
-FROM node:18-alpine AS base
+FROM node:18.20-alpine3.19 AS base
 WORKDIR /app
 RUN npm i -g pnpm@8.6.12
 
@@ -16,7 +16,9 @@ COPY apps/frontend/package.json ./apps/frontend/
 COPY packages/e2e-tests/package.json ./packages/e2e-tests/
 
 # Instala dependencias sin scripts (evita postinstall de Prisma)
-RUN pnpm install --frozen-lockfile --ignore-scripts
+# Use pnpm cache mount for faster builds with BuildKit
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store/v3 \
+    pnpm install --frozen-lockfile --ignore-scripts
 
 # Copia código backend (incluye prisma/)
 COPY apps/backend/ ./apps/backend/
@@ -31,8 +33,12 @@ RUN pnpm --filter backend build
 RUN pnpm --filter backend deploy --prod /app/deploy
 
 # Etapa runtime mínima
-FROM node:18-alpine AS production
+FROM node:18.20-alpine3.19 AS production
 ENV NODE_ENV=production
+
+# Add native dependencies for Prisma engines and TLS connections
+RUN apk add --no-cache openssl ca-certificates libstdc++
+
 RUN addgroup -g 1001 -S appgroup && adduser -S appuser -u 1001
 WORKDIR /app
 
