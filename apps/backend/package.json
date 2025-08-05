@@ -8,11 +8,13 @@
     "prisma"
   ],
   "prisma": {
-    "schema": "prisma/schema.prisma"
+    "schema": "prisma/schema.prisma",
+    "seed": "node dist/prisma/seed.js"
   },
   "scripts": {
     "dev": "ts-node src/index.ts | pino-pretty",
     "build": "tsc",
+    "postbuild": "mkdir -p dist/prisma",
     "start": "node dist/server.js",
     "test": "jest",
     "test:watch": "jest --watch",
