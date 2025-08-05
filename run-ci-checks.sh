@@ -70,23 +70,25 @@ pnpm docker:up:ci
 # Wait for services to be healthy using Docker health checks
 echo "ℹ️  Waiting for services to be healthy..."
 echo "ℹ️  Checking PostgreSQL health..."
-timeout 60s bash -c 'until docker compose exec -T db pg_isready -U "${POSTGRES_USER:-sq_qb_user}" -d "${POSTGRES_DB:-sq_qb_integration}"; do sleep 2; done'
+timeout 60s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T db pg_isready -U "${POSTGRES_USER:-sq_qb_user}" -d "${POSTGRES_DB:-sq_qb_integration}"; do sleep 2; done'
 echo "ℹ️  Checking Redis health..."
-timeout 30s bash -c 'until docker compose exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
+timeout 30s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
 echo "ℹ️  Checking PgBouncer health..."
 timeout 30s bash -c 'until nc -z localhost 6432; do sleep 2; done'
 echo "✅ All infrastructure services are healthy"
 
 # Apply database migrations and seeding INSIDE the Docker network
 echo "ℹ️  Applying database migrations..."
-docker compose run --rm backend_service_runner pnpm --filter backend exec prisma migrate deploy --schema prisma/schema.prisma
+docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
+  sh -c 'cd /app && npm run migrate:deploy'
 
 echo "ℹ️  Seeding the database..."
-docker compose run --rm backend_service_runner pnpm --filter backend exec prisma db seed --schema prisma/schema.prisma
+docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
+  sh -c 'cd /app && npm run db:seed'
 
 # Start backend and frontend services for E2E testing
 echo "ℹ️  Starting backend and frontend services for E2E testing..."
-docker compose --profile e2e up -d backend frontend
+docker compose -f docker-compose.yml -f docker-compose.ci.yml --profile e2e up -d backend frontend
 
 # Wait for application services to be ready using health checks
 echo "ℹ️  Waiting for application services to be ready..."
@@ -112,16 +114,16 @@ if ! pnpm --filter @sq-qb-integration/e2e-tests test; then
   echo "❌ E2E tests failed. Dumping comprehensive diagnostics..."
   
   echo "--- Service Status ---"
-  docker compose ps || true
+  docker compose -f docker-compose.yml -f docker-compose.ci.yml ps || true
   
   echo "--- Backend Logs (Last 15 minutes) ---"
-  docker compose logs --no-color --since=15m backend || true
+  docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color --since=15m backend || true
   
   echo "--- Frontend Logs (Last 15 minutes) ---"
-  docker compose logs --no-color --since=15m frontend || true
+  docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color --since=15m frontend || true
   
   echo "--- Infrastructure Logs (Last 15 minutes) ---"
-  docker compose logs --no-color --since=15m db redis pgbouncer || true
+  docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color --since=15m db redis pgbouncer || true
   
   exit 1
 fi

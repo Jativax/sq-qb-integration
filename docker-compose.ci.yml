@@ -1,5 +1,3 @@
-version: '3.9'
-
 # CI-specific overrides for testing
 # This file extends docker-compose.yml with CI-specific configurations
 services:
