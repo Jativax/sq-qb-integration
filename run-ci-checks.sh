@@ -79,24 +79,21 @@ echo "✅ All infrastructure services are healthy"
 
 # Apply database migrations and seeding INSIDE the Docker network
 echo "ℹ️  Verifying app contents in container..."
-docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
-  sh -c "
-    set -euo pipefail
-    cd /app
-    echo 'PWD: \$(pwd)'
-    echo '== Contents of /app =='
-    ls -la .
-    echo '== prisma/ =='
-    ls -la prisma || true
-    echo '== dist/prisma/ =='
-    ls -la dist/prisma || true
-    echo '== node_modules/@prisma/client/ =='
-    ls -la node_modules/@prisma/client || true
-    test -f prisma/schema.prisma || { echo '❌ schema missing'; exit 1; }
-    test -f dist/prisma/seed.js || { echo '❌ seed.js missing'; exit 1; }
-    echo '✅ schema present'
-    echo '✅ seed.js present'
-  "
+docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner sh -lc "
+  set -euo pipefail
+  echo \"PWD: \$(pwd)\"
+  echo '== Contents of /app =='
+  ls -la
+  echo '== prisma/ =='
+  ls -la prisma || true
+  echo '== dist/prisma/ =='
+  ls -la dist/prisma || true
+  echo '== resolve(@prisma/client) =='
+  node -e \"console.log(require.resolve('@prisma/client'))\" || { echo '❌ @prisma/client not resolvable'; exit 1; }
+  test -f prisma/schema.prisma || { echo '❌ prisma/schema.prisma missing'; exit 1; }
+  test -f dist/prisma/seed.js || { echo '❌ dist/prisma/seed.js missing'; exit 1; }
+  echo '✅ All required files present'
+"
 
 echo "ℹ️  Verifying Prisma versions..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \

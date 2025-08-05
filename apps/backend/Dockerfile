@@ -29,22 +29,17 @@ RUN pnpm --filter backend exec prisma generate --schema prisma/schema.prisma
 # Compila TypeScript del backend (incluye seed.ts)
 RUN pnpm --filter backend build
 
-# Verifica que el seed.js fue compilado
-RUN ls -la apps/backend/dist/prisma/ || echo "dist/prisma directory not found"
+# Assert seed output exists
+RUN ls -la apps/backend/dist/prisma/ && \
+    test -f apps/backend/dist/prisma/seed.js
 
 # Usa pnpm deploy para crear artefactos autocontenidos
 RUN pnpm --filter backend deploy --prod /app/deploy
 
-# Ensure Prisma files are included in the deployment
-RUN mkdir -p /app/deploy/prisma /app/deploy/dist/prisma && \
-    cp -r apps/backend/prisma/* /app/deploy/prisma/ && \
-    if [ -f apps/backend/dist/prisma/seed.js ]; then \
-      cp apps/backend/dist/prisma/seed.js /app/deploy/dist/prisma/ && \
-      echo "✅ seed.js copied successfully"; \
-    else \
-      echo "Warning: seed.js not found at apps/backend/dist/prisma/seed.js"; \
-      echo "Contents of apps/backend/dist/prisma/: $(ls -la apps/backend/dist/prisma/ 2>/dev/null || echo 'directory not found')"; \
-    fi
+# Produce a flat deploy at /app/deploy that matches verifier expectations
+RUN mkdir -p /app/deploy/dist/prisma /app/deploy/prisma && \
+    cp -r apps/backend/dist/* /app/deploy/dist/ && \
+    cp -r apps/backend/prisma/* /app/deploy/prisma/
 
 # Etapa runtime mínima
 FROM node:18.20-alpine3.19 AS production
