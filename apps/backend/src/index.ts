@@ -19,7 +19,7 @@ import './workers/reconciliationWorker';
 
 const app = express();
 const prisma = getPrismaClient();
-const { PORT } = config;
+const { HOST, PORT } = config;
 
 // Middleware
 app.use(cors());
@@ -108,8 +108,8 @@ async function startServer(): Promise<void> {
     );
 
     // Start the Express server
-    app.listen(PORT, () => {
-      logger.info({ port: PORT }, 'Server running');
+    app.listen(PORT, HOST, () => {
+      logger.info({ host: HOST, port: PORT }, 'Server running');
       logger.info(
         { endpoint: '/api/v1/webhooks/square' },
         'API Documentation available'

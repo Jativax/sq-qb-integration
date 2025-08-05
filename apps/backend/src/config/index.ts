@@ -21,6 +21,7 @@ const configSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
+  HOST: z.string().default('localhost'),
   PORT: z.coerce.number().min(1).max(65535).default(3001),
 
   // Database

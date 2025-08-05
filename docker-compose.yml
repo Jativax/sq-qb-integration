@@ -92,10 +92,16 @@ services:
       context: .
       dockerfile: ./apps/backend/Dockerfile
     container_name: sq-qb-backend
-    command: pnpm start
-    volumes:
-      - .:/app
-    # Ensure port is published to the host, binding to localhost for security
+    # NO montar el workspace: tapa /dist de la imagen
+    # volumes:  (eliminar)
+    command: ['node', 'dist/server.js']
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - PORT=3001
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-sq_qb_user}:${POSTGRES_PASSWORD:-your_secure_password}@pgbouncer:6432/${POSTGRES_DB:-sq_qb_integration}?schema=public
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     ports:
       - '127.0.0.1:3001:3001'
     profiles:
@@ -107,18 +113,12 @@ services:
         condition: service_healthy
       pgbouncer:
         condition: service_started
-    environment:
-      # CORRECTED THE TYPOS HERE
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@pgbouncer:6432/${POSTGRES_DB:-sq_qb_db}?schema=public
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - NODE_ENV=development
-      - PORT=3001
     healthcheck:
-      test: ['CMD-SHELL', 'wget -q --spider http://localhost:3001/ || exit 1']
+      test:
+        ['CMD-SHELL', 'wget -q --spider http://localhost:3001/health || exit 1']
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
     networks:
       - sq-qb-network
 
