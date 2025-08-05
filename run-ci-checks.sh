@@ -73,6 +73,16 @@ echo "ℹ️  Checking PostgreSQL health..."
 timeout 60s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T db pg_isready -U "${POSTGRES_USER:-sq_qb_user}" -d "${POSTGRES_DB:-sq_qb_integration}"; do sleep 2; done'
 echo "ℹ️  Checking Redis health..."
 timeout 30s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
+
+# Handle Redis memory overcommit warning (optional optimization)
+echo "ℹ️  Configuring Redis memory settings..."
+if [ -w /proc/sys/vm/overcommit_memory ]; then
+  echo 1 > /proc/sys/vm/overcommit_memory
+  echo "✅ Memory overcommit enabled for Redis"
+else
+  echo "⚠️  Cannot enable memory overcommit (not root or not available)"
+fi
+
 echo "✅ All infrastructure services are healthy"
 
 # Add diagnostic to check if bind-mount is shadowing /app
@@ -191,6 +201,24 @@ timeout 120s bash -c '
   exit 1
 }
 echo "✅ All application services are healthy"
+
+# Additional explicit health check before E2E tests
+echo "ℹ️  Final health verification before E2E tests..."
+echo "ℹ️  Testing backend API endpoints..."
+curl -sf http://127.0.0.1:3001/health || {
+  echo "❌ Backend health endpoint not accessible"
+  exit 1
+}
+curl -sf http://127.0.0.1:3001/ready || {
+  echo "❌ Backend ready endpoint not accessible"
+  exit 1
+}
+echo "ℹ️  Testing frontend accessibility..."
+curl -sf http://127.0.0.1:5173/ || {
+  echo "❌ Frontend not accessible"
+  exit 1
+}
+echo "✅ All endpoints verified and accessible"
 
 # Run Playwright E2E tests, and if they fail, print comprehensive diagnostics
 echo "ℹ️  Running Playwright E2E tests against the live environment..."

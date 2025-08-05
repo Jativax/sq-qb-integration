@@ -36,6 +36,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Step 3.5: Install Playwright browsers
+      - name: Install Playwright browsers
+        run: pnpm --filter @sq-qb-integration/e2e-tests install-browsers
+
       # Step 4: Run comprehensive CI checks
       - name: Run CI checks
         run: pnpm ci:checks
