@@ -79,7 +79,7 @@ echo "✅ All infrastructure services are healthy"
 
 # Add diagnostic to check if bind-mount is shadowing /app
 echo "ℹ️  Checking for bind-mount issues..."
-docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner sh -lc "
+docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci sh -lc "
   echo 'PWD: \$(pwd)'
   echo '=== /app contents ==='
   ls -la /app/ | head -10
@@ -93,7 +93,7 @@ docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_se
 
 # Apply database migrations and seeding INSIDE the Docker network
 echo "ℹ️  Verifying app contents in container..."
-docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner sh -lc "
+docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci sh -lc "
   set -euo pipefail
   node -e \"console.log(require.resolve('@prisma/client'))\"
   test -f /app/dist/prisma/seed.js
@@ -102,7 +102,7 @@ docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_se
 "
 
 echo "ℹ️  Verifying Prisma versions..."
-docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
+docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci \
   sh -c "
     set -e
     cd /app
@@ -124,11 +124,11 @@ docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_se
   "
 
 echo "ℹ️  Applying database migrations..."
-docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
+docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci \
   sh -c "cd /app && pnpm exec prisma migrate deploy"
 
 echo "ℹ️  Seeding the database..."
-docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
+docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci \
   sh -c "cd /app && pnpm exec prisma db seed"
 
 # Start backend and frontend services for E2E testing
