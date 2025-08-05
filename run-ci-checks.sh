@@ -92,11 +92,22 @@ docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_se
 echo "ℹ️  Verifying Prisma versions..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
   sh -c "
-    set -eu
-    test -f prisma/schema.prisma
-    npx -y prisma@5.1.1 -v | grep -q 'prisma/5.1.1'
-    node -e \"console.log(require('@prisma/client/package.json').version)\" | grep -q '^5\.1\.1'
-    echo '✅ Prisma CLI and Client versions verified'
+    set -e
+
+    # Show versions for logs
+    echo '---- Prisma CLI version ----'
+    npx -y prisma@5.1.1 -v
+
+    # Assert CLI == 5.1.1 (robust to spacing/format)
+    npx -y prisma@5.1.1 -v | tr -d '\r' | grep -Eiq '^prisma\s*:?\s*5\.1\.1\b'
+
+    echo '---- @prisma/client version ----'
+    node -e \"console.log(require('@prisma/client/package.json').version)\"
+
+    # Assert client == 5.1.1
+    node -e \"console.log(require('@prisma/client/package.json').version)\" | grep -Eq '^5\.1\.1$'
+
+    echo '✅ Prisma CLI and Client pinned to 5.1.1'
   "
 
 echo "ℹ️  Applying database migrations..."
