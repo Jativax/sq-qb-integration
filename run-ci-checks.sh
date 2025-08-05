@@ -82,19 +82,18 @@ echo "ℹ️  Verifying app contents in container..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
   sh -c "
     set -eu
-    pwd
-    echo '== /app =='
-    ls -la /app || true
-    echo '== /app/prisma =='
-    ls -la /app/prisma || true
-    test -f /app/prisma/schema.prisma && echo '✅ schema present' || (echo '❌ schema missing' && exit 1)
+    echo '== $(pwd) =='
+    ls -la .
+    echo '== prisma/ =='
+    ls -la prisma || true
+    test -f prisma/schema.prisma && echo '✅ schema present' || (echo '❌ schema missing' && exit 1)
   "
 
 echo "ℹ️  Verifying Prisma versions..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
   sh -c "
     set -eu
-    test -f /app/prisma/schema.prisma
+    test -f prisma/schema.prisma
     npx -y prisma@5.1.1 -v | grep -q 'prisma/5.1.1'
     node -e \"console.log(require('@prisma/client/package.json').version)\" | grep -q '^5\.1\.1'
     echo '✅ Prisma CLI and Client versions verified'
@@ -102,11 +101,11 @@ docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_se
 
 echo "ℹ️  Applying database migrations..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
-  sh -c "cd /app && npx -y prisma@5.1.1 migrate deploy --schema /app/prisma/schema.prisma"
+  sh -c "npx -y prisma@5.1.1 migrate deploy --schema prisma/schema.prisma"
 
 echo "ℹ️  Seeding the database..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend_service_runner \
-  sh -c "cd /app && npx -y prisma@5.1.1 db seed --schema /app/prisma/schema.prisma"
+  sh -c "npx -y prisma@5.1.1 db seed --schema prisma/schema.prisma"
 
 # Start backend and frontend services for E2E testing
 echo "ℹ️  Starting backend and frontend services for E2E testing..."
