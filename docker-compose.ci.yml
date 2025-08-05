@@ -13,16 +13,18 @@ services:
       timeout: 2s
       retries: 40
 
-  # Fix: Clear volume mounts to prevent shadowing /app in CI
+  # Disable backend_service_runner in CI (we use backend-ci instead)
   backend_service_runner:
+    profiles: ['disabled']
     # Remove the bind-mount that shadows the built application
     volumes: []
     working_dir: /app # Set working directory to deployed app root
-    # Override environment for CI
+    # Override environment for CI (if this service were ever used)
     environment:
-      - NODE_ENV=production
+      NODE_ENV: test
+      DATABASE_URL: postgresql://${POSTGRES_USER:-testuser}:${POSTGRES_PASSWORD:-testpass}@db:5432/${POSTGRES_DB:-testdb}?schema=public
 
-  # Alternative: Create a CI-specific service without bind-mount
+  # CI-specific service without bind-mount for testing
   backend-ci:
     build:
       context: .
@@ -32,10 +34,19 @@ services:
     # No volumes - uses the built image content
     working_dir: /app
     environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-sq_qb_user}:${POSTGRES_PASSWORD:-your_secure_password}@db:5432/${POSTGRES_DB:-sq_qb_integration}?schema=public
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      NODE_ENV: test
+      DATABASE_URL: postgresql://${POSTGRES_USER:-testuser}:${POSTGRES_PASSWORD:-testpass}@db:5432/${POSTGRES_DB:-testdb}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      POSTGRES_USER: ${POSTGRES_USER:-testuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-testpass}
+      POSTGRES_DB: ${POSTGRES_DB:-testdb}
+      SQUARE_WEBHOOK_SIGNATURE_KEY: ${SQUARE_WEBHOOK_SIGNATURE_KEY:-test_signature_key}
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER:-test_pepper_at_least_16_chars}
+      SQUARE_ACCESS_TOKEN: ${SQUARE_ACCESS_TOKEN:-test_token}
+      SQUARE_APPLICATION_ID: ${SQUARE_APPLICATION_ID:-test_app}
+      QB_ACCESS_TOKEN: ${QB_ACCESS_TOKEN:-test_qb_token}
+      QB_REALM_ID: ${QB_REALM_ID:-test_realm}
     depends_on:
       db:
         condition: service_healthy

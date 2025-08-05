@@ -20,7 +20,7 @@
     "test:e2e:install": "cd packages/e2e-tests && npm install && npm run install-browsers",
     "prepare": "node -e \"try { require('child_process').execSync('husky install') } catch (e) { console.log('husky install skipped') }\"",
     "docker:up": "docker compose up -d",
-    "docker:up:ci": "docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d",
+    "docker:up:ci": "docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d db redis pgbouncer backend-ci",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
     "docker:restart": "docker compose restart",

@@ -64,7 +64,7 @@ success "All backend tests passed"
 step "5" "End-to-End Test Execution" "This step requires Docker environment and will test the full application flow"
 
 # Start Docker services
-echo "ℹ️  Starting Docker services (PostgreSQL, Redis, PgBouncer)..."
+echo "ℹ️  Starting Docker services (PostgreSQL, Redis, PgBouncer, Backend CI)..."
 pnpm docker:up:ci
 
 # Wait for services to be healthy using Docker health checks
@@ -100,6 +100,12 @@ docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci
   test -f /app/prisma/schema.prisma
   echo '✅ All required files present'
 "
+
+echo "ℹ️  Verifying CI environment configuration..."
+echo "NODE_ENV in backend-ci:"
+docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci sh -lc 'echo $NODE_ENV'
+echo "DATABASE_URL in backend-ci:"
+docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci sh -lc 'echo ${DATABASE_URL:-"(not set)"}'
 
 echo "ℹ️  Verifying Prisma versions..."
 docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci \
