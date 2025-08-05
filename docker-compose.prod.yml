@@ -80,8 +80,14 @@ services:
       - pgbouncer
     environment:
       NODE_ENV: production
+      HOST: 0.0.0.0
       PORT: 3001
-      DATABASE_URL: postgresql://${POSTGRES_USER:-squser}@pgbouncer:6432/${POSTGRES_DB:-sq_qb_integration}
+      # DATABASE_URL will be built dynamically from secrets and env vars
+      POSTGRES_USER: ${POSTGRES_USER:-squser}
+      POSTGRES_DB: ${POSTGRES_DB:-sq_qb_integration}
+      PGBOUNCER_HOST: pgbouncer
+      PGBOUNCER_PORT: 6432
+      # Redis configuration
       REDIS_URL: redis://redis:6379
     secrets:
       - postgres_password
@@ -92,7 +98,7 @@ services:
       - qb_access_token
       - qb_realm_id
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:3001/api/health']
+      test: ['CMD', 'curl', '-f', 'http://localhost:3001/health']
       interval: 30s
       timeout: 10s
       retries: 3

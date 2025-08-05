@@ -27,7 +27,8 @@ const configSchema = z.object({
   // Database
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid URL'),
 
-  // Redis Configuration
+  // Redis Configuration - supports both REDIS_URL and individual components
+  REDIS_URL: z.string().optional(),
   REDIS_HOST: z.string().default('localhost'),
   REDIS_PORT: z.coerce.number().min(1).max(65535).default(6379),
   REDIS_PASSWORD: z.string().optional(),
@@ -80,6 +81,63 @@ function readDockerSecret(secretName: string): string | undefined {
 }
 
 /**
+ * Build DATABASE_URL from secrets and environment variables in production
+ */
+function buildDatabaseUrl(): string {
+  const isProduction = process.env['NODE_ENV'] === 'production';
+
+  if (isProduction) {
+    // In production, build DATABASE_URL from components and secrets
+    const dbUser = process.env['POSTGRES_USER'] ?? 'squser';
+    const dbName = process.env['POSTGRES_DB'] ?? 'sq_qb_integration';
+    const dbPassword =
+      readDockerSecret('postgres_password') ?? process.env['POSTGRES_PASSWORD'];
+    const dbHost = process.env['PGBOUNCER_HOST'] ?? 'pgbouncer';
+    const dbPort = process.env['PGBOUNCER_PORT'] ?? '6432';
+
+    if (!dbPassword) {
+      throw new Error('Database password not found in secrets or environment');
+    }
+
+    return `postgresql://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}?pgbouncer=true`;
+  } else {
+    // In development, use provided DATABASE_URL or construct from env vars
+    return (
+      process.env['DATABASE_URL'] ??
+      `postgresql://${process.env['POSTGRES_USER'] ?? 'sq_qb_user'}:${
+        process.env['POSTGRES_PASSWORD'] ?? 'your_secure_password'
+      }@localhost:6432/${
+        process.env['POSTGRES_DB'] ?? 'sq_qb_integration'
+      }?schema=public`
+    );
+  }
+}
+
+/**
+ * Build REDIS_URL from environment variables if not provided
+ */
+function buildRedisUrl(): string | undefined {
+  // Prefer REDIS_URL if provided
+  if (process.env['REDIS_URL']) {
+    return process.env['REDIS_URL'];
+  }
+
+  // Otherwise construct from components
+  const redisHost = process.env['REDIS_HOST'] ?? 'localhost';
+  const redisPort = process.env['REDIS_PORT'] ?? '6379';
+  const redisPassword = process.env['REDIS_PASSWORD'];
+  const redisDb = process.env['REDIS_DB'] ?? '0';
+
+  let redisUrl = `redis://`;
+  if (redisPassword) {
+    redisUrl += `:${redisPassword}@`;
+  }
+  redisUrl += `${redisHost}:${redisPort}/${redisDb}`;
+
+  return redisUrl;
+}
+
+/**
  * Load configuration values from Docker secrets (production) or environment variables (development)
  * @returns Configuration object with all values populated
  */
@@ -93,16 +151,20 @@ function loadConfigurationValues(): Record<string, string | undefined> {
     return {
       // Keep non-sensitive values from environment
       NODE_ENV: process.env['NODE_ENV'],
+      HOST: process.env['HOST'],
       PORT: process.env['PORT'],
-      DATABASE_URL: process.env['DATABASE_URL'],
-      REDIS_HOST: process.env['REDIS_HOST'],
-      REDIS_PORT: process.env['REDIS_PORT'],
-      REDIS_PASSWORD: process.env['REDIS_PASSWORD'],
-      REDIS_DB: process.env['REDIS_DB'],
       SQUARE_ENVIRONMENT: process.env['SQUARE_ENVIRONMENT'],
       QB_ENVIRONMENT: process.env['QB_ENVIRONMENT'],
       WORKER_CONCURRENCY: process.env['WORKER_CONCURRENCY'],
       FORCE_QB_FAILURE: process.env['FORCE_QB_FAILURE'],
+
+      // Build URLs dynamically
+      DATABASE_URL: buildDatabaseUrl(),
+      REDIS_URL: buildRedisUrl(),
+      REDIS_HOST: process.env['REDIS_HOST'],
+      REDIS_PORT: process.env['REDIS_PORT'],
+      REDIS_PASSWORD: process.env['REDIS_PASSWORD'],
+      REDIS_DB: process.env['REDIS_DB'],
 
       // Read sensitive values from Docker secrets
       SQUARE_WEBHOOK_SIGNATURE_KEY: readDockerSecret(
@@ -118,8 +180,20 @@ function loadConfigurationValues(): Record<string, string | undefined> {
     console.info(
       'Loading configuration from environment variables (development mode)'
     );
-    // In development, use environment variables as before
-    return process.env as Record<string, string | undefined>;
+    // In development, build URLs if needed and use environment variables
+    const configValues = process.env as Record<string, string | undefined>;
+
+    // Ensure DATABASE_URL is built if not provided
+    if (!configValues['DATABASE_URL']) {
+      configValues['DATABASE_URL'] = buildDatabaseUrl();
+    }
+
+    // Build REDIS_URL if not provided but individual components are
+    if (!configValues['REDIS_URL']) {
+      configValues['REDIS_URL'] = buildRedisUrl();
+    }
+
+    return configValues;
   }
 }
 
@@ -228,8 +302,10 @@ export default config;
 // Named exports for convenience
 export const {
   NODE_ENV,
+  HOST,
   PORT,
   DATABASE_URL,
+  REDIS_URL,
   REDIS_HOST,
   REDIS_PORT,
   REDIS_PASSWORD,
@@ -242,5 +318,6 @@ export const {
   QB_REALM_ID,
   QB_ENVIRONMENT,
   WORKER_CONCURRENCY,
+  PASSWORD_PEPPER,
   FORCE_QB_FAILURE,
 } = config;

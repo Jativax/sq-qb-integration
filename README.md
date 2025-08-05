@@ -29,7 +29,7 @@ DATABASE_URL=postgresql://your_username:your_secure_password@localhost:6432/sq_q
 PASSWORD_PEPPER=your_long_and_secret_pepper_value_at_least_16_characters
 ```
 
-**Note**: The DATABASE_URL uses port `6432` (PgBouncer) instead of the direct PostgreSQL port `5432` for connection pooling. The `PASSWORD_PEPPER` is required for enhanced security.
+**Note**: The DATABASE_URL uses port `6432` (PgBouncer) for runtime application connections, providing connection pooling and better performance. Direct PostgreSQL port `5432` is used only for database migrations and administration. The `PASSWORD_PEPPER` is required for enhanced security.
 
 ### 2. Install Dependencies
 
@@ -694,7 +694,12 @@ Create a `.env` file in the root directory with the following configuration:
 POSTGRES_USER=sq_qb_user
 POSTGRES_PASSWORD=your_secure_password
 POSTGRES_DB=sq_qb_integration
-DATABASE_URL=postgresql://sq_qb_user:your_secure_password@localhost:5432/sq_qb_integration?schema=public
+# Runtime DATABASE_URL uses PgBouncer (port 6432) for connection pooling
+DATABASE_URL=postgresql://sq_qb_user:your_secure_password@localhost:6432/sq_qb_integration?pgbouncer=true
+
+# Database Ports Explained:
+# - Port 6432: PgBouncer (for application runtime connections with pooling)
+# - Port 5432: Direct PostgreSQL (for migrations, seeding, and admin tasks)
 
 # Redis Configuration
 REDIS_HOST=localhost

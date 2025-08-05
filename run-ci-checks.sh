@@ -67,9 +67,15 @@ step "5" "End-to-End Test Execution" "This step requires Docker environment and 
 echo "ℹ️  Starting Docker services (PostgreSQL, Redis, PgBouncer)..."
 pnpm docker:up
 
-# Wait for services to be healthy
-echo "ℹ️  Waiting for services to initialize (15 seconds)..."
-sleep 15
+# Wait for services to be healthy using Docker health checks
+echo "ℹ️  Waiting for services to be healthy..."
+echo "ℹ️  Checking PostgreSQL health..."
+timeout 60s bash -c 'until docker compose exec -T db pg_isready -U "${POSTGRES_USER:-sq_qb_user}" -d "${POSTGRES_DB:-sq_qb_integration}"; do sleep 2; done'
+echo "ℹ️  Checking Redis health..."
+timeout 30s bash -c 'until docker compose exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
+echo "ℹ️  Checking PgBouncer health..."
+timeout 30s bash -c 'until docker compose exec -T pgbouncer pg_isready -h localhost -p 6432 -U "${POSTGRES_USER:-sq_qb_user}"; do sleep 2; done'
+echo "✅ All infrastructure services are healthy"
 
 # Apply database migrations and seeding INSIDE the Docker network
 echo "ℹ️  Applying database migrations..."
@@ -82,18 +88,41 @@ docker compose run --rm backend_service_runner pnpm --filter backend exec prisma
 echo "ℹ️  Starting backend and frontend services for E2E testing..."
 docker compose --profile e2e up -d backend frontend
 
-# Wait for services to be ready
+# Wait for application services to be ready using health checks
 echo "ℹ️  Waiting for application services to be ready..."
-sleep 10
-
-# Run Playwright E2E tests, and if they fail, print Docker logs
-echo "ℹ️  Running Playwright E2E tests against the live environment..."
-if ! pnpm --filter @sq-qb-integration/e2e-tests test; then
-  echo "❌ E2E tests failed. Dumping logs for debugging..."
+echo "ℹ️  Checking backend health..."
+timeout 120s bash -c 'until curl -sf http://localhost:3001/health >/dev/null 2>&1; do sleep 3; done' || {
+  echo "❌ Backend failed to become healthy"
   echo "--- Backend Logs ---"
-  docker logs sq-qb-backend --tail 200 || true
+  docker logs sq-qb-backend --tail 100 || true
+  exit 1
+}
+echo "ℹ️  Checking frontend health..."
+timeout 60s bash -c 'until curl -sf http://localhost:5173/health >/dev/null 2>&1; do sleep 2; done' || {
+  echo "❌ Frontend failed to become healthy"
   echo "--- Frontend Logs ---"
   docker logs sq-qb-frontend --tail 100 || true
+  exit 1
+}
+echo "✅ All application services are healthy"
+
+# Run Playwright E2E tests, and if they fail, print comprehensive diagnostics
+echo "ℹ️  Running Playwright E2E tests against the live environment..."
+if ! pnpm --filter @sq-qb-integration/e2e-tests test; then
+  echo "❌ E2E tests failed. Dumping comprehensive diagnostics..."
+  
+  echo "--- Service Status ---"
+  docker compose ps || true
+  
+  echo "--- Backend Logs (Last 15 minutes) ---"
+  docker compose logs --no-color --since=15m backend || true
+  
+  echo "--- Frontend Logs (Last 15 minutes) ---"
+  docker compose logs --no-color --since=15m frontend || true
+  
+  echo "--- Infrastructure Logs (Last 15 minutes) ---"
+  docker compose logs --no-color --since=15m db redis pgbouncer || true
+  
   exit 1
 fi
 

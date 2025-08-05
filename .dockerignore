@@ -1,0 +1,76 @@
+# Git
+.git
+.gitignore
+
+# Dependencies
+node_modules
+.pnpm-store
+.npm
+.yarn
+
+# Build outputs
+dist
+build
+coverage
+
+# Development files
+.env
+.env.local
+.env.*.local
+
+# Testing
+packages/e2e-tests/test-results
+packages/e2e-tests/playwright-report
+test-results/
+coverage/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Documentation (for Docker context)
+*.md
+docs/
+Documents-Plans/
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+
+# Docker related
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Secrets (should never be in Docker context)
+secrets/
+*.pem
+*.key
+
+# Config files not needed in container
+.prettierrc
+.eslintrc*
+jest.config.js
+playwright.config.ts
+tsconfig*.json
