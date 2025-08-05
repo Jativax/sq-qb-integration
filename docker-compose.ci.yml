@@ -54,3 +54,28 @@ services:
         condition: service_healthy
     networks:
       - sq-qb-network
+
+  # Override backend service for E2E testing without PgBouncer
+  backend:
+    environment:
+      NODE_ENV: test
+      HOST: 0.0.0.0
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-testuser}:${POSTGRES_PASSWORD:-testpass}@db:5432/${POSTGRES_DB:-testdb}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      POSTGRES_USER: ${POSTGRES_USER:-testuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-testpass}
+      POSTGRES_DB: ${POSTGRES_DB:-testdb}
+      SQUARE_WEBHOOK_SIGNATURE_KEY: ${SQUARE_WEBHOOK_SIGNATURE_KEY:-test_signature_key}
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER:-test_pepper_at_least_16_chars}
+      SQUARE_ACCESS_TOKEN: ${SQUARE_ACCESS_TOKEN:-test_token}
+      SQUARE_APPLICATION_ID: ${SQUARE_APPLICATION_ID:-test_app}
+      QB_ACCESS_TOKEN: ${QB_ACCESS_TOKEN:-test_qb_token}
+      QB_REALM_ID: ${QB_REALM_ID:-test_realm}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      # Remove pgbouncer dependency

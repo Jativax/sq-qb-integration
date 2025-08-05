@@ -64,8 +64,8 @@ success "All backend tests passed"
 step "5" "End-to-End Test Execution" "This step requires Docker environment and will test the full application flow"
 
 # Start Docker services
-echo "ℹ️  Starting Docker services (PostgreSQL, Redis, PgBouncer, Backend CI)..."
-pnpm docker:up:ci
+echo "ℹ️  Starting Docker services (PostgreSQL, Redis, Backend CI)..."
+pnpm docker:up:ci:direct
 
 # Wait for services to be healthy using Docker health checks
 echo "ℹ️  Waiting for services to be healthy..."
@@ -73,8 +73,6 @@ echo "ℹ️  Checking PostgreSQL health..."
 timeout 60s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T db pg_isready -U "${POSTGRES_USER:-sq_qb_user}" -d "${POSTGRES_DB:-sq_qb_integration}"; do sleep 2; done'
 echo "ℹ️  Checking Redis health..."
 timeout 30s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
-echo "ℹ️  Checking PgBouncer health..."
-timeout 30s bash -c 'until nc -z localhost 6432; do sleep 2; done'
 echo "✅ All infrastructure services are healthy"
 
 # Add diagnostic to check if bind-mount is shadowing /app
@@ -174,7 +172,7 @@ if ! pnpm --filter @sq-qb-integration/e2e-tests test; then
   docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color --since=15m frontend || true
   
   echo "--- Infrastructure Logs (Last 15 minutes) ---"
-  docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color --since=15m db redis pgbouncer || true
+  docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color --since=15m db redis || true
   
   exit 1
 fi

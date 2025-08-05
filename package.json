@@ -21,6 +21,7 @@
     "prepare": "node -e \"try { require('child_process').execSync('husky install') } catch (e) { console.log('husky install skipped') }\"",
     "docker:up": "docker compose up -d",
     "docker:up:ci": "docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d db redis pgbouncer backend-ci",
+    "docker:up:ci:direct": "docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d db redis backend-ci",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
     "docker:restart": "docker compose restart",
