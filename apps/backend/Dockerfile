@@ -1,70 +1,58 @@
-# Multi-stage Dockerfile for production-ready backend
-# Stage 1: Builder
-FROM node:18-alpine AS builder
+# apps/backend/Dockerfile
 
-# Install pnpm globally
+# ---- Base ----
+FROM node:18-alpine AS base
+WORKDIR /app
 RUN npm install -g pnpm@8.6.12
 
-# Set working directory
+
+# ---- Builder ----
+# This stage installs all dependencies and builds the application.
+FROM base AS builder
 WORKDIR /app
 
-# Copy workspace configuration files
+# Copy all package manifests and the lockfile
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-
-# Copy backend package.json
 COPY apps/backend/package.json ./apps/backend/
+COPY apps/frontend/package.json ./apps/frontend/
+COPY packages/e2e-tests/package.json ./packages/e2e-tests/
 
-# Copy prisma directory (needed for client generation)
-COPY apps/backend/prisma ./apps/backend/prisma
-
-# Install ALL dependencies first (including dev deps needed for build)
-# Skip lifecycle scripts (including Husky) in Docker build environment
+# Install ALL monorepo dependencies (including dev dependencies)
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Copy the rest of the backend source code
-COPY apps/backend/src ./apps/backend/src
-COPY apps/backend/tsconfig.json ./apps/backend/
+COPY apps/backend/ ./apps/backend/
 
-# Generate Prisma client
-RUN pnpm --filter backend exec prisma generate
-
-# Build the TypeScript project
+# Build the backend application
 RUN pnpm --filter backend build
 
-# Stage 2: Production
-FROM node:18-alpine AS production
+# Use `pnpm deploy` to create a self-contained production-ready folder.
+# This command copies the backend's source, its production dependencies,
+# and the compiled `dist` folder into `/app/deploy`.
+RUN pnpm deploy --filter backend --prod /app/deploy
+
+
+# ---- Production ----
+# This is the final, lean image that will run the application.
+FROM base AS production
+WORKDIR /app
 
 # Create a non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
+    adduser -S appuser -u 1001
 
-# Install pnpm globally (needed for CI database operations)
-RUN npm install -g pnpm@8.6.12
+# Copy the self-contained deployment folder from the builder stage
+COPY --from=builder /app/deploy .
 
-# Set working directory
-WORKDIR /app
+# Change ownership of the files to the non-root user
+RUN chown -R appuser:nodejs /app
 
-# Copy node_modules from builder stage (includes Prisma CLI)
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-
-# Copy workspace structure for pnpm commands
-COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
-COPY --from=builder --chown=nextjs:nodejs /app/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=builder --chown=nextjs:nodejs /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=builder --chown=nextjs:nodejs /app/apps/backend/package.json ./apps/backend/package.json
-
-# Copy the compiled JavaScript from builder stage
-COPY --from=builder --chown=nextjs:nodejs /app/apps/backend/dist ./dist
-
-# Copy prisma directory from builder stage (needed for schema at runtime and migrations)
-COPY --from=builder --chown=nextjs:nodejs /app/apps/backend/prisma ./apps/backend/prisma
-
-# Switch to non-root user
-USER nextjs
+# Switch to the non-root user
+USER appuser
 
 # Expose the application port
 EXPOSE 3001
 
-# Set the production environment and run the application directly
+# Set the production environment and run the application
 ENV NODE_ENV=production
 CMD ["node", "dist/server.js"]
