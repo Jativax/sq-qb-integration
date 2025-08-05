@@ -143,17 +143,51 @@ docker compose -f docker-compose.yml -f docker-compose.ci.yml --profile e2e up -
 # Wait for application services to be ready using health checks
 echo "ℹ️  Waiting for application services to be ready..."
 echo "ℹ️  Checking backend health..."
-timeout 120s bash -c 'until curl -sf http://localhost:3001/health >/dev/null 2>&1; do sleep 3; done' || {
+echo "ℹ️  Backend container status:"
+docker ps --filter name=sq-qb-backend --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" || true
+timeout 180s bash -c '
+  attempts=0
+  max_attempts=60
+  while [ $attempts -lt $max_attempts ]; do
+    response=$(curl -sf http://localhost:3001/health 2>&1) && break
+    attempts=$((attempts + 1))
+    echo "Attempt $attempts/$max_attempts failed: $response"
+    sleep 3
+  done
+  if [ $attempts -eq $max_attempts ]; then
+    echo "❌ Backend health check failed after $max_attempts attempts"
+    exit 1
+  fi
+' || {
   echo "❌ Backend failed to become healthy"
-  echo "--- Backend Logs ---"
-  docker logs sq-qb-backend --tail 100 || true
+  echo "--- Backend Container Status ---"
+  docker ps --filter name=sq-qb-backend || true
+  echo "--- Backend Logs (Last 200 lines) ---"
+  docker logs sq-qb-backend --tail 200 || true
   exit 1
 }
 echo "ℹ️  Checking frontend health..."
-timeout 60s bash -c 'until curl -sf http://localhost:5173/health >/dev/null 2>&1; do sleep 2; done' || {
+echo "ℹ️  Frontend container status:"
+docker ps --filter name=sq-qb-frontend --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" || true
+timeout 120s bash -c '
+  attempts=0
+  max_attempts=40
+  while [ $attempts -lt $max_attempts ]; do
+    response=$(curl -sf http://localhost:5173/health 2>&1) && break
+    attempts=$((attempts + 1))
+    echo "Attempt $attempts/$max_attempts failed: $response"
+    sleep 3
+  done
+  if [ $attempts -eq $max_attempts ]; then
+    echo "❌ Frontend health check failed after $max_attempts attempts"
+    exit 1
+  fi
+' || {
   echo "❌ Frontend failed to become healthy"
-  echo "--- Frontend Logs ---"
-  docker logs sq-qb-frontend --tail 100 || true
+  echo "--- Frontend Container Status ---"
+  docker ps --filter name=sq-qb-frontend || true
+  echo "--- Frontend Logs (Last 200 lines) ---"
+  docker logs sq-qb-frontend --tail 200 || true
   exit 1
 }
 echo "✅ All application services are healthy"

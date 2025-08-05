@@ -35,12 +35,17 @@ RUN set -eux; \
     SEED_PATH="apps/backend/dist/prisma/seed.js"; \
     if [ ! -f "$SEED_PATH" ]; then \
       echo "❌ seed.js not found at $SEED_PATH"; \
-      echo "Tree under apps/backend/dist:"; \
+      echo "Contents of apps/backend/dist:"; \
       ls -la apps/backend/dist || true; \
-      echo "Searching for any seed.js under apps/backend:"; \
-      find apps/backend -maxdepth 6 -type f -name "seed.js" -print || true; \
+      echo "Contents of apps/backend/dist/prisma (if exists):"; \
+      ls -la apps/backend/dist/prisma || echo "prisma directory does not exist"; \
+      echo "Searching for any seed.js files under apps/backend:"; \
+      find apps/backend -name "seed.js" -type f -print || echo "No seed.js files found"; \
+      echo "Checking TypeScript build info:"; \
+      ls -la apps/backend/dist/*.tsbuildinfo || echo "No tsbuildinfo files"; \
       exit 1; \
-    fi
+    fi \
+    && echo "✅ seed.js found at $SEED_PATH"
 
 # Usa pnpm deploy para crear artefactos autocontenidos
 RUN pnpm --filter backend deploy --prod /app/deploy

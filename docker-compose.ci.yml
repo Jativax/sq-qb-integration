@@ -41,12 +41,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-testuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-testpass}
       POSTGRES_DB: ${POSTGRES_DB:-testdb}
-      SQUARE_WEBHOOK_SIGNATURE_KEY: ${SQUARE_WEBHOOK_SIGNATURE_KEY:-test_signature_key}
-      PASSWORD_PEPPER: ${PASSWORD_PEPPER:-test_pepper_at_least_16_chars}
-      SQUARE_ACCESS_TOKEN: ${SQUARE_ACCESS_TOKEN:-test_token}
-      SQUARE_APPLICATION_ID: ${SQUARE_APPLICATION_ID:-test_app}
-      QB_ACCESS_TOKEN: ${QB_ACCESS_TOKEN:-test_qb_token}
-      QB_REALM_ID: ${QB_REALM_ID:-test_realm}
+      SQUARE_ENVIRONMENT: ${SQUARE_ENVIRONMENT:-sandbox}
+      SQUARE_WEBHOOK_SIGNATURE_KEY: ${SQUARE_WEBHOOK_SIGNATURE_KEY:-test_signature_key_for_ci_testing_only}
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER:-test_pepper_at_least_16_chars_for_ci}
+      SQUARE_ACCESS_TOKEN: ${SQUARE_ACCESS_TOKEN:-EAAAl7HumdOaagaeAAAGmxaOChiHBLSQ8kkAiGEA1VSQ96Af6rUdRQBW8WnrtBUK}
+      SQUARE_APPLICATION_ID: ${SQUARE_APPLICATION_ID:-sq0idp-wGVaSbeqoMUBGNicN3mbOw}
+      QB_ACCESS_TOKEN: ${QB_ACCESS_TOKEN:-test_qb_token_for_ci}
+      QB_REALM_ID: ${QB_REALM_ID:-test_realm_for_ci}
     depends_on:
       db:
         condition: service_healthy
@@ -67,12 +68,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-testuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-testpass}
       POSTGRES_DB: ${POSTGRES_DB:-testdb}
-      SQUARE_WEBHOOK_SIGNATURE_KEY: ${SQUARE_WEBHOOK_SIGNATURE_KEY:-test_signature_key}
-      PASSWORD_PEPPER: ${PASSWORD_PEPPER:-test_pepper_at_least_16_chars}
-      SQUARE_ACCESS_TOKEN: ${SQUARE_ACCESS_TOKEN:-test_token}
-      SQUARE_APPLICATION_ID: ${SQUARE_APPLICATION_ID:-test_app}
-      QB_ACCESS_TOKEN: ${QB_ACCESS_TOKEN:-test_qb_token}
-      QB_REALM_ID: ${QB_REALM_ID:-test_realm}
+      SQUARE_ENVIRONMENT: ${SQUARE_ENVIRONMENT:-sandbox}
+      SQUARE_WEBHOOK_SIGNATURE_KEY: ${SQUARE_WEBHOOK_SIGNATURE_KEY:-test_signature_key_for_ci_testing_only}
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER:-test_pepper_at_least_16_chars_for_ci}
+      SQUARE_ACCESS_TOKEN: ${SQUARE_ACCESS_TOKEN:-EAAAl7HumdOaagaeAAAGmxaOChiHBLSQ8kkAiGEA1VSQ96Af6rUdRQBW8WnrtBUK}
+      SQUARE_APPLICATION_ID: ${SQUARE_APPLICATION_ID:-sq0idp-wGVaSbeqoMUBGNicN3mbOw}
+      QB_ACCESS_TOKEN: ${QB_ACCESS_TOKEN:-test_qb_token_for_ci}
+      QB_REALM_ID: ${QB_REALM_ID:-test_realm_for_ci}
     depends_on:
       db:
         condition: service_healthy

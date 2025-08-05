@@ -22,10 +22,11 @@ async function globalSetup() {
         'http-get://localhost:3001/health',
         'http-get://localhost:5173/health',
       ],
-      timeout: 120000, // 2-minute timeout for cold Docker starts in CI
-      interval: 2000, // Check every 2 seconds
+      timeout: 300000, // 5-minute timeout for cold Docker starts in CI
+      interval: 3000, // Check every 3 seconds
       validateStatus: status => status >= 200 && status < 400,
-      window: 2000, // Wait for 2 seconds of consecutive success
+      window: 5000, // Wait for 5 seconds of consecutive success
+      log: true, // Enable detailed logging
     });
     console.log('✅ All services are ready!');
   } catch (err) {

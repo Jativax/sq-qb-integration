@@ -48,10 +48,25 @@ export class SecurityService {
       hmac.update(signaturePayload, 'utf8');
       const generatedSignature = hmac.digest('base64');
 
-      const isValid = crypto.timingSafeEqual(
-        Buffer.from(providedSignature, 'utf8'),
-        Buffer.from(generatedSignature, 'utf8')
-      );
+      // Convert both signatures to base64 buffers for comparison
+      const providedBuffer = Buffer.from(providedSignature, 'base64');
+      const generatedBuffer = Buffer.from(generatedSignature, 'base64');
+
+      // Ensure buffers have the same length before comparison
+      if (providedBuffer.length !== generatedBuffer.length) {
+        logger.warn(
+          {
+            providedLength: providedBuffer.length,
+            generatedLength: generatedBuffer.length,
+            providedSignature: providedSignature.substring(0, 10) + '...',
+            generatedSignature: generatedSignature.substring(0, 10) + '...',
+          },
+          'Signature buffer length mismatch'
+        );
+        return false;
+      }
+
+      const isValid = crypto.timingSafeEqual(providedBuffer, generatedBuffer);
 
       if (!isValid) {
         logger.warn(
