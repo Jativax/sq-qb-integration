@@ -119,6 +119,15 @@ jobs:
           SQUARE_ENVIRONMENT: sandbox
           QB_ENVIRONMENT: sandbox
           PORT: 3001
+          # Webhook configuration for E2E tests
+          SQUARE_WEBHOOK_SIGNATURE_KEY: test-signature-key
+          SQUARE_WEBHOOK_URL: http://localhost:3001/api/v1/webhooks/square
+          SQUARE_ACCESS_TOKEN: test-token
+          SQUARE_APPLICATION_ID: test-app-id
+          QB_ACCESS_TOKEN: test-token
+          QB_REALM_ID: test-realm
+          PASSWORD_PEPPER: test-pepper-at-least-16-chars
+          WORKER_CONCURRENCY: 1
 
       # Step 5: Set up Docker Buildx for advanced build features
       - name: Set up Docker Buildx

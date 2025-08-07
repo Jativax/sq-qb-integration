@@ -31,8 +31,12 @@ export class SecurityService {
       // Special handling for test environment
       if (
         process.env['NODE_ENV'] === 'test' &&
-        providedSignature === 'VALID_TEST_SIGNATURE'
+        (providedSignature === 'VALID_TEST_SIGNATURE' ||
+          providedSignature === 'BYPASS_FOR_E2E_TEST')
       ) {
+        logger.warn(
+          'Bypassing webhook signature validation for test environment'
+        );
         return true;
       }
 

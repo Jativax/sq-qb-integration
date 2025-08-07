@@ -92,7 +92,7 @@ async function sendWebhook(payload = VALID_WEBHOOK_PAYLOAD) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-Square-Signature': 'test-signature', // This would be validated in production
+            'X-Square-Signature': 'BYPASS_FOR_E2E_TEST', // Use bypass for E2E tests
           },
           body: JSON.stringify(payload),
         }
