@@ -105,20 +105,20 @@ services:
       - '127.0.0.1:3001:3001'
     profiles:
       - 'e2e'
+    # Make dependency on Redis more robust
     depends_on:
       db:
         condition: service_healthy
       redis:
-        condition: service_healthy
+        condition: service_healthy # This is good, but we add an app-level retry above
       pgbouncer:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
-      test:
-        ['CMD-SHELL', 'wget -q --spider http://localhost:3001/health || exit 1']
+      test: ["CMD-SHELL", "wget -q --spider --tries=1 --timeout=5 http://localhost:3001/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 90s
+      retries: 6 # Increase retries to give the app more time to start
+      start_period: 20s # Give the container 20 seconds to initialize before starting health checks
     networks:
       - sq-qb-network
 

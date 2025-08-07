@@ -18,6 +18,9 @@ export class QueueService {
           password: config.REDIS_PASSWORD,
         }),
         db: config.REDIS_DB,
+        maxRetriesPerRequest: 3, // Add automatic retries for Redis connection
+        enableReadyCheck: true,
+        retryDelayOnFailover: 100,
       },
       defaultJobOptions: {
         removeOnComplete: 10, // Keep last 10 completed jobs
@@ -41,6 +44,9 @@ export class QueueService {
           password: config.REDIS_PASSWORD,
         }),
         db: config.REDIS_DB,
+        maxRetriesPerRequest: 3, // Add automatic retries for Redis connection
+        enableReadyCheck: true,
+        retryDelayOnFailover: 100,
       },
     });
     logger.info('System jobs queue initialized');
@@ -54,6 +60,9 @@ export class QueueService {
           password: config.REDIS_PASSWORD,
         }),
         db: config.REDIS_DB,
+        maxRetriesPerRequest: 3, // Add automatic retries for Redis connection
+        enableReadyCheck: true,
+        retryDelayOnFailover: 100,
       },
       defaultJobOptions: {
         removeOnComplete: 100, // Keep more completed DLQ jobs for analysis
