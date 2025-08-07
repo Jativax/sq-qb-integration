@@ -32,41 +32,15 @@ RUN pnpm --filter backend run build
 # Build seed after main build (depends on dist/ structure)
 RUN pnpm --filter backend run build:seed
 
-# Ensure seed.js is properly generated and copied
+# Verify seed.js exists
 RUN set -eux; \
-    echo "=== Checking seed build process ==="; \
-    echo "Contents of apps/backend/prisma:"; \
-    ls -la apps/backend/prisma/ || true; \
-    echo "=== Running seed build explicitly ==="; \
-    cd apps/backend && pnpm run build:seed; \
-    echo "=== Checking dist directory after build ==="; \
-    ls -la apps/backend/dist/ || true; \
-    echo "=== Creating prisma directory if missing ==="; \
-    mkdir -p apps/backend/dist/prisma; \
-    echo "=== Copying seed.js to expected location ==="; \
-    if [ -f "apps/backend/dist/seed.js" ]; then \
-      cp apps/backend/dist/seed.js apps/backend/dist/prisma/seed.js; \
-      echo "✅ Copied seed.js from dist/ to dist/prisma/"; \
-    elif [ -f "apps/backend/dist/prisma/seed.js" ]; then \
-      echo "✅ seed.js already in correct location"; \
-    elif [ -f "apps/backend/prisma/seed.js" ]; then \
-      cp apps/backend/prisma/seed.js apps/backend/dist/prisma/seed.js; \
-      echo "✅ Copied seed.js from prisma/ to dist/prisma/"; \
-    else \
-      echo "❌ seed.js not found in any expected location"; \
-      echo "Searching for seed.js files:"; \
-      find apps/backend -name "seed.js" -type f -print || echo "No seed.js files found"; \
-      echo "=== Checking TypeScript compilation output ==="; \
-      echo "Contents of apps/backend/dist (if exists):"; \
-      ls -la apps/backend/dist/ || echo "dist directory does not exist"; \
-      echo "=== Checking for any .js files in backend:"; \
-      find apps/backend -name "*.js" -type f -print || echo "No .js files found"; \
-      echo "=== Checking TypeScript build info:"; \
-      find apps/backend -name "*.tsbuildinfo" -type f -print || echo "No tsbuildinfo files found"; \
-      echo "=== Checking TypeScript compilation errors ==="; \
-      cd apps/backend && pnpm run build:seed || echo "TypeScript compilation failed"; \
+    SEED_JS="apps/backend/dist/prisma/seed.js"; \
+    if [ ! -f "$SEED_JS" ]; then \
+      echo "❌ seed.js not found at $SEED_JS after build"; \
+      ls -R apps/backend/dist || true; \
       exit 1; \
-    fi
+    fi; \
+    echo "✅ seed.js verified at $SEED_JS"
 
 # Assert seed output exists with diagnostics if missing
 RUN set -eux; \
