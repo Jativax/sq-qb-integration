@@ -8,7 +8,9 @@
     "declaration": false,
     "declarationMap": false,
     "composite": false,
-    "tsBuildInfoFile": "./dist/tsconfig.seed.tsbuildinfo"
+    "tsBuildInfoFile": "./dist/tsconfig.seed.tsbuildinfo",
+    "baseUrl": "."
   },
-  "include": ["prisma/seed.ts", "src/**/*"]
+  "include": ["prisma/seed.ts", "src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

@@ -45,6 +45,8 @@ RUN set -eux; \
     if [ -f "apps/backend/dist/seed.js" ]; then \
       cp apps/backend/dist/seed.js apps/backend/dist/prisma/seed.js; \
       echo "✅ Copied seed.js from dist/ to dist/prisma/"; \
+    elif [ -f "apps/backend/dist/prisma/seed.js" ]; then \
+      echo "✅ seed.js already in correct location"; \
     elif [ -f "apps/backend/prisma/seed.js" ]; then \
       cp apps/backend/prisma/seed.js apps/backend/dist/prisma/seed.js; \
       echo "✅ Copied seed.js from prisma/ to dist/prisma/"; \
@@ -59,6 +61,8 @@ RUN set -eux; \
       find apps/backend -name "*.js" -type f -print || echo "No .js files found"; \
       echo "=== Checking TypeScript build info:"; \
       find apps/backend -name "*.tsbuildinfo" -type f -print || echo "No tsbuildinfo files found"; \
+      echo "=== Checking TypeScript compilation errors ==="; \
+      cd apps/backend && pnpm run build:seed --verbose || echo "TypeScript compilation failed"; \
       exit 1; \
     fi
 
