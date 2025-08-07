@@ -84,7 +84,9 @@ jobs:
             libgdk-pixbuf-2.0-0 \
             xdg-utils \
             libffi8 \
-            libx264-164
+            libx264-164 \
+            libflite1 \
+            libgles2
 
       # Step 3.7: Install Playwright browsers
       - name: Install Playwright browsers

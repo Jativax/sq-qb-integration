@@ -44,29 +44,82 @@ const VALID_WEBHOOK_PAYLOAD = {
 
 // Helper function to clear test data
 async function clearTestData() {
-  const response = await fetch('http://127.0.0.1:3001/api/test/clear', {
-    method: 'POST',
-  });
+  // Add retry logic with exponential backoff for rate limiting
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch('http://127.0.0.1:3001/api/test/clear', {
+        method: 'POST',
+      });
 
-  if (!response.ok) {
-    throw new Error(`Failed to clear test data: ${response.statusText}`);
+      if (response.ok) {
+        console.log('✅ Test data cleared');
+        return;
+      }
+
+      // If it's a rate limit error, wait and retry
+      if (response.status === 429) {
+        const waitTime = 1000 * Math.pow(2, attempt); // Exponential backoff: 1s, 2s, 4s
+        console.log(
+          `⚠️ Rate limited, waiting ${waitTime}ms before retry ${attempt + 1}/3`
+        );
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+
+      // For other errors, throw immediately
+      throw new Error(`Failed to clear test data: ${response.statusText}`);
+    } catch (error) {
+      if (attempt === 2) {
+        throw error; // Re-throw on final attempt
+      }
+      const waitTime = 1000 * Math.pow(2, attempt);
+      console.log(
+        `⚠️ Request failed, waiting ${waitTime}ms before retry ${attempt + 1}/3`
+      );
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
   }
-
-  console.log('✅ Test data cleared');
 }
 
 // Helper function to send webhook
 async function sendWebhook(payload = VALID_WEBHOOK_PAYLOAD) {
-  const response = await fetch('http://127.0.0.1:3001/api/v1/webhooks/square', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Square-Signature': 'test-signature', // This would be validated in production
-    },
-    body: JSON.stringify(payload),
-  });
+  // Add retry logic with exponential backoff for rate limiting
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch(
+        'http://127.0.0.1:3001/api/v1/webhooks/square',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Square-Signature': 'test-signature', // This would be validated in production
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
-  return response;
+      // If it's a rate limit error, wait and retry
+      if (response.status === 429) {
+        const waitTime = 1000 * Math.pow(2, attempt);
+        console.log(
+          `⚠️ Rate limited, waiting ${waitTime}ms before retry ${attempt + 1}/3`
+        );
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      if (attempt === 2) {
+        throw error; // Re-throw on final attempt
+      }
+      const waitTime = 1000 * Math.pow(2, attempt);
+      console.log(
+        `⚠️ Request failed, waiting ${waitTime}ms before retry ${attempt + 1}/3`
+      );
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
 }
 
 // Helper function to wait for UI updates
@@ -80,31 +133,90 @@ async function waitForMetricsUpdate(page: Page, timeout = 10000) {
 
 // Helper function to enable forced failure
 async function enableForcedFailure() {
-  const response = await fetch('http://127.0.0.1:3001/api/test/force-failure', {
-    method: 'POST',
-  });
+  // Add retry logic with exponential backoff for rate limiting
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch(
+        'http://127.0.0.1:3001/api/test/force-failure',
+        {
+          method: 'POST',
+        }
+      );
 
-  if (!response.ok) {
-    throw new Error(`Failed to enable forced failure: ${response.statusText}`);
+      if (response.ok) {
+        console.log('🔧 Forced failure enabled');
+        return;
+      }
+
+      // If it's a rate limit error, wait and retry
+      if (response.status === 429) {
+        const waitTime = 1000 * Math.pow(2, attempt);
+        console.log(
+          `⚠️ Rate limited, waiting ${waitTime}ms before retry ${attempt + 1}/3`
+        );
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+
+      // For other errors, throw immediately
+      throw new Error(
+        `Failed to enable forced failure: ${response.statusText}`
+      );
+    } catch (error) {
+      if (attempt === 2) {
+        throw error; // Re-throw on final attempt
+      }
+      const waitTime = 1000 * Math.pow(2, attempt);
+      console.log(
+        `⚠️ Request failed, waiting ${waitTime}ms before retry ${attempt + 1}/3`
+      );
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
   }
-
-  console.log('🔧 Forced failure enabled');
 }
 
 // Helper function to disable forced failure
 async function disableForcedFailure() {
-  const response = await fetch(
-    'http://127.0.0.1:3001/api/test/disable-failure',
-    {
-      method: 'POST',
+  // Add retry logic with exponential backoff for rate limiting
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch(
+        'http://127.0.0.1:3001/api/test/disable-failure',
+        {
+          method: 'POST',
+        }
+      );
+
+      if (response.ok) {
+        console.log('🔧 Forced failure disabled');
+        return;
+      }
+
+      // If it's a rate limit error, wait and retry
+      if (response.status === 429) {
+        const waitTime = 1000 * Math.pow(2, attempt);
+        console.log(
+          `⚠️ Rate limited, waiting ${waitTime}ms before retry ${attempt + 1}/3`
+        );
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+
+      // For other errors, throw immediately
+      throw new Error(
+        `Failed to disable forced failure: ${response.statusText}`
+      );
+    } catch (error) {
+      if (attempt === 2) {
+        throw error; // Re-throw on final attempt
+      }
+      const waitTime = 1000 * Math.pow(2, attempt);
+      console.log(
+        `⚠️ Request failed, waiting ${waitTime}ms before retry ${attempt + 1}/3`
+      );
+      await new Promise(resolve => setTimeout(resolve, waitTime));
     }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to disable forced failure: ${response.statusText}`);
   }
-
-  console.log('🔧 Forced failure disabled');
 }
 
 test.describe('Square-QuickBooks Integration E2E Tests', () => {
