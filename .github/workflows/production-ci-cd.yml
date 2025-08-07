@@ -36,6 +36,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      # Step 3.4: Format lockfile and code
+      - name: Format code and lockfile
+        run: |
+          pnpm format
+          # Ensure lockfile is properly formatted
+          if [ -f pnpm-lock.yaml ]; then
+            echo "Formatting pnpm-lock.yaml..."
+            # Remove any trailing whitespace and ensure consistent formatting
+            sed -i 's/[[:space:]]*$//' pnpm-lock.yaml
+          fi
+
       # Step 3.5: Configure system for Redis
       - name: Configure System for Redis
         run: sudo sysctl -w vm.overcommit_memory=1
