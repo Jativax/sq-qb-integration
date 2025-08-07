@@ -10,5 +10,5 @@
     "composite": false,
     "tsBuildInfoFile": "./dist/tsconfig.seed.tsbuildinfo"
   },
-  "include": ["prisma/seed.ts"]
+  "include": ["prisma/seed.ts", "src/**/*"]
 }

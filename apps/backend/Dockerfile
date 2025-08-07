@@ -52,6 +52,13 @@ RUN set -eux; \
       echo "❌ seed.js not found in any expected location"; \
       echo "Searching for seed.js files:"; \
       find apps/backend -name "seed.js" -type f -print || echo "No seed.js files found"; \
+      echo "=== Checking TypeScript compilation output ==="; \
+      echo "Contents of apps/backend/dist (if exists):"; \
+      ls -la apps/backend/dist/ || echo "dist directory does not exist"; \
+      echo "=== Checking for any .js files in backend:"; \
+      find apps/backend -name "*.js" -type f -print || echo "No .js files found"; \
+      echo "=== Checking TypeScript build info:"; \
+      find apps/backend -name "*.tsbuildinfo" -type f -print || echo "No tsbuildinfo files found"; \
       exit 1; \
     fi
 
