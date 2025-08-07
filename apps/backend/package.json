@@ -12,23 +12,22 @@
     "seed": "node dist/prisma/seed.js"
   },
   "scripts": {
-    "dev": "ts-node src/index.ts | pino-pretty",
     "build": "tsc",
     "build:seed": "tsc -p tsconfig.seed.json",
-    "postbuild": "pnpm run build:seed",
-    "start": "node dist/server.js",
+    "start": "node dist/index.js",
+    "start:ci": "node dist/index-minimal.js",
+    "build:ci": "tsc src/index-minimal.ts --outDir dist",
+    "dev": "tsx watch src/index.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "db:seed": "node dist/prisma/seed.js",
+    "db:migrate": "prisma migrate deploy",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset --force",
     "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
-    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio",
-    "prisma:seed": "ts-node prisma/seed.ts",
-    "prisma:reset": "prisma migrate reset",
-    "migrate:deploy": "prisma migrate deploy --schema prisma/schema.prisma",
-    "db:seed": "prisma db seed"
+    "lint:fix": "eslint src --ext .ts --fix"
   },
   "dependencies": {
     "@prisma/client": "^5.1.1",

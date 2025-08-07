@@ -5,7 +5,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: ./apps/backend/Dockerfile.ci
+      dockerfile: ./apps/backend/Dockerfile.ci-minimal
     container_name: sq-qb-backend
     ports:
       - '127.0.0.1:3001:3001'
@@ -14,13 +14,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      pgbouncer:
-        condition: service_started
     environment:
+      - NODE_ENV=ci
       - DATABASE_URL=postgresql://sq_qb_user:your_secure_password@db:5432/sq_qb_integration?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - NODE_ENV=test
       - HOST=0.0.0.0
       - PORT=3001
       - PASSWORD_PEPPER=ci_super_secret_pepper_value_123
@@ -30,11 +28,19 @@ services:
       - QB_ACCESS_TOKEN=ci_test_qb_access_token
       - QB_REALM_ID=ci_test_qb_realm_id
     healthcheck:
-      test: ['CMD-SHELL', 'pgrep node || exit 1']
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://localhost:3001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
+        ]
       interval: 10s
       timeout: 5s
-      retries: 6
-      start_period: 30s
+      retries: 10
+      start_period: 60s
+    networks:
+      - sq-qb-network
 
   frontend:
     build:
@@ -49,8 +55,23 @@ services:
     environment:
       - VITE_API_BASE_URL=http://backend:3001
     healthcheck:
-      test: ['CMD-SHELL', 'pgrep nginx || exit 1']
+      test:
+        [
+          'CMD',
+          'wget',
+          '-q',
+          '--spider',
+          '--tries=3',
+          '--timeout=5',
+          'http://localhost/health',
+        ]
       interval: 10s
       timeout: 5s
-      retries: 6
-      start_period: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - sq-qb-network
+
+networks:
+  sq-qb-network:
+    driver: bridge

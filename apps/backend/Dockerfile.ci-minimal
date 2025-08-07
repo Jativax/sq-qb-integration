@@ -1,0 +1,59 @@
+FROM node:18-alpine
+
+# Install dependencies for health checks
+RUN apk add --no-cache netcat-openbsd
+
+WORKDIR /app
+
+# Create a minimal package.json for the minimal backend
+RUN echo '{\
+  "name": "sq-qb-backend-minimal",\
+  "version": "1.0.0",\
+  "main": "dist/index-minimal.js",\
+  "scripts": {\
+    "build": "tsc --project tsconfig.json",\
+    "start": "node dist/index-minimal.js"\
+  },\
+  "dependencies": {\
+    "express": "^4.18.2",\
+    "cors": "^2.8.5"\
+  },\
+  "devDependencies": {\
+    "@types/express": "^4.17.17",\
+    "@types/cors": "^2.8.13",\
+    "typescript": "^5.0.0"\
+  }\
+}' > package.json
+
+# Create TypeScript configuration
+RUN echo '{\
+  "compilerOptions": {\
+    "target": "ES2020",\
+    "module": "commonjs",\
+    "esModuleInterop": true,\
+    "allowSyntheticDefaultImports": true,\
+    "strict": true,\
+    "skipLibCheck": true,\
+    "forceConsistentCasingInFileNames": true,\
+    "outDir": "dist"\
+  }\
+}' > tsconfig.json
+
+# Install only the minimal dependencies
+RUN npm install
+
+# Copy the minimal backend source
+COPY apps/backend/src/index-minimal.ts ./src/
+
+# Build the minimal application
+RUN npm run build
+
+# Expose port
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+  CMD node -e "require('http').get('http://localhost:3001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))" || exit 1
+
+# Start the minimal backend directly
+CMD ["node", "dist/index-minimal.js"]

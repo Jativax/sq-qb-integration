@@ -202,7 +202,20 @@ docker compose -f docker-compose.yml run --rm backend_service_runner \
 
 # Start backend and frontend services for E2E testing
 echo "ℹ️  Starting backend and frontend services for E2E testing..."
-docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build backend frontend
+docker compose -f docker-compose.yml up -d db redis pgbouncer
+docker compose -f docker-compose.ci.yml up -d --build backend frontend
+
+# Debug: Check container status
+echo "ℹ️  Checking container status..."
+docker ps -a
+
+# Debug: Check backend logs
+echo "ℹ️  Backend container logs:"
+docker logs sq-qb-backend --tail 50 || echo "Backend container not found"
+
+# Debug: Check frontend logs  
+echo "ℹ️  Frontend container logs:"
+docker logs sq-qb-frontend --tail 50 || echo "Frontend container not found"
 
 # Wait for application services to be ready using health checks
 echo "ℹ️  Waiting for application services to be ready..."
