@@ -88,6 +88,11 @@ This project has undergone comprehensive modernization to ensure production-read
 
 ### **🔧 Latest CI/CD Pipeline Fixes (August 2025)**
 
+#### **Playwright & E2E Stability**
+
+- **✅ Single Playwright Version**: Aligned `@playwright/test` to **v1.43.0** across the monorepo to match the global Playwright CLI, eliminating duplicate-version conflicts that triggered the `test.describe()` misconfiguration error.
+- **✅ Simplified Seed Verification**: Replaced redundant re-compilation with a lightweight file-existence check (`apps/backend/dist/prisma/seed.js`) in the backend Dockerfile, preventing silent build failures.
+
 #### **Critical Docker & Containerization Fixes**
 
 - **✅ Docker Bind-Mount Resolution**: Fixed critical issue where CI bind-mounts were shadowing built application content by using `volumes: null` in `docker-compose.ci.yml`
@@ -2654,6 +2659,49 @@ This release represents a **complete enterprise-grade solution** with:
 - **Comprehensive Validation**: End-to-end testing with real services
 - **Fail-Fast Behavior**: Immediate error detection and reporting
 - **Self-Cleaning**: Proper resource cleanup regardless of test outcomes
+
+## 🌐 **Manual Deployment to Vercel (Frontend)**
+
+The frontend is a static React/Vite build and can be deployed to Vercel in minutes.
+
+### Prerequisites
+
+1. **Vercel Account** – Create one at https://vercel.com (free tier is enough).
+2. **Vercel CLI** – Install and authenticate once:
+
+```bash
+pnpm dlx vercel@latest login
+```
+
+### Build & Deploy
+
+1. **Build the frontend** (monorepo root):
+
+```bash
+pnpm --filter frontend run build
+```
+
+The static site is generated in `apps/frontend/dist`.
+
+2. **Deploy** the pre-built directory:
+
+```bash
+pnpm dlx vercel --prod --name sq-qb-integration-frontend --prebuilt ./apps/frontend/dist
+```
+
+Vercel uploads the `dist` folder as a static site and returns a production URL (or alias it to a custom domain in the dashboard).
+
+### Environment Variables (optional)
+
+If the frontend needs to talk to a remote backend, define the variable below in the Vercel Dashboard:
+
+| Variable                | Description                                                       |
+| ----------------------- | ----------------------------------------------------------------- |
+| `VITE_BACKEND_BASE_URL` | Base URL of the deployed backend (e.g. `https://api.example.com`) |
+
+These map directly to the `useApi` hook in `apps/frontend/src/hooks/useApi.ts`.
+
+> **Backend note**: The Node.js/Prisma backend runs in Docker containers and is intended for platforms such as AWS ECS/Fargate, Fly.io, Render, or Kubernetes. The Vercel deployment covers **only** the static React SPA.
 
 ---
 
