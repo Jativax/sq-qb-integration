@@ -1,5 +1,4 @@
 # docker-compose.ci.yml  – CI-only services for E2E tests
-version: '3.8'
 
 services:
   backend:
