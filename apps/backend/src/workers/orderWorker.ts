@@ -24,6 +24,9 @@ class OrderWorkerService {
         password: config.REDIS_PASSWORD,
       }),
       db: config.REDIS_DB,
+      lazyConnect: true,
+      enableOfflineQueue: false,
+      connectTimeout: 5000,
     };
 
     // Initialize BullMQ queue for metrics monitoring
@@ -47,6 +50,16 @@ class OrderWorkerService {
 
     this.setupEventHandlers();
     this.startQueueMonitoring();
+
+    // Add Redis error handling to prevent crashes
+    this.worker.on('error', err => {
+      logger.error({ err }, 'Redis connection error in OrderWorker');
+    });
+
+    this.queue.on('error', err => {
+      logger.error({ err }, 'Redis connection error in OrderWorker queue');
+    });
+
     logger.info('OrderWorker started and listening for jobs');
   }
 

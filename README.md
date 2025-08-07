@@ -352,16 +352,16 @@ bash scripts/monitor-ci.sh
 
 #### **Architecture Assessment**
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| **Frontend (React SPA)** | ✅ Ready | Vite-based, optimized for Vercel |
-| **Backend (Node.js API)** | ✅ Ready | Express.js with TypeScript |
-| **Database (PostgreSQL)** | ✅ Ready | Prisma ORM with migrations |
-| **Queue System (Redis)** | ✅ Ready | BullMQ for background jobs |
-| **Authentication** | ✅ Ready | JWT-based with RBAC |
-| **Security** | ✅ Ready | Webhook validation, rate limiting |
-| **Testing** | ✅ Ready | Unit, integration, and E2E tests |
-| **CI/CD** | ✅ Ready | GitHub Actions with full pipeline |
+| Component                 | Status   | Notes                             |
+| ------------------------- | -------- | --------------------------------- |
+| **Frontend (React SPA)**  | ✅ Ready | Vite-based, optimized for Vercel  |
+| **Backend (Node.js API)** | ✅ Ready | Express.js with TypeScript        |
+| **Database (PostgreSQL)** | ✅ Ready | Prisma ORM with migrations        |
+| **Queue System (Redis)**  | ✅ Ready | BullMQ for background jobs        |
+| **Authentication**        | ✅ Ready | JWT-based with RBAC               |
+| **Security**              | ✅ Ready | Webhook validation, rate limiting |
+| **Testing**               | ✅ Ready | Unit, integration, and E2E tests  |
+| **CI/CD**                 | ✅ Ready | GitHub Actions with full pipeline |
 
 #### **Security Audit Results**
 
@@ -386,6 +386,7 @@ bash scripts/monitor-ci.sh
 #### **Deployment Considerations**
 
 **Infrastructure Requirements**:
+
 - **Frontend**: Static hosting (Vercel recommended)
 - **Backend**: Node.js runtime with PostgreSQL + Redis
 - **Database**: PostgreSQL 15+ with connection pooling
@@ -393,11 +394,13 @@ bash scripts/monitor-ci.sh
 - **Monitoring**: Health checks and metrics collection
 
 **Environment Variables**:
+
 - All sensitive data properly externalized
 - Environment-specific configurations
 - Secure credential management
 
 **Scalability**:
+
 - Horizontal scaling ready
 - Database connection pooling
 - Background job processing
@@ -506,12 +509,14 @@ Create a `vercel.json` file in the project root:
 **Option A: Vercel Dashboard (Recommended)**
 
 1. **Connect Repository**:
+
    - Go to [Vercel Dashboard](https://vercel.com/dashboard)
    - Click "New Project"
    - Import your GitHub repository
    - Select the repository: `Jativax/sq-qb-integration`
 
 2. **Configure Project**:
+
    - **Framework Preset**: `Vite`
    - **Root Directory**: `apps/frontend`
    - **Build Command**: `pnpm build`
@@ -519,6 +524,7 @@ Create a `vercel.json` file in the project root:
    - **Install Command**: `pnpm install`
 
 3. **Environment Variables**:
+
    - Add `VITE_API_BASE_URL` with your backend URL
    - Add any other required environment variables
 
@@ -559,6 +565,7 @@ vercel --prod
 ##### **5. Custom Domain (Optional)**
 
 1. **Add Domain**:
+
    - Go to your project settings in Vercel Dashboard
    - Navigate to "Domains"
    - Add your custom domain (e.g., `app.yourcompany.com`)
@@ -582,6 +589,7 @@ Vercel automatically creates preview deployments for pull requests:
 #### **Backend Deployment**
 
 The backend requires a platform that supports:
+
 - **Node.js 18+** runtime
 - **PostgreSQL** database
 - **Redis** for job queues
@@ -590,11 +598,13 @@ The backend requires a platform that supports:
 **Recommended Platforms**:
 
 1. **Railway** (Recommended)
+
    - Easy PostgreSQL + Redis setup
    - Automatic deployments from GitHub
    - Built-in environment variable management
 
 2. **Render**
+
    - Free tier available
    - PostgreSQL add-on
    - Redis support
@@ -608,6 +618,7 @@ The backend requires a platform that supports:
 
 1. **Deploy Backend API** to your chosen platform
 2. **Configure Environment Variables**:
+
    ```bash
    DATABASE_URL=postgresql://...
    REDIS_URL=redis://...
@@ -624,12 +635,14 @@ The backend requires a platform that supports:
 #### **Post-Deployment Verification**
 
 1. **Frontend Health Check**:
+
    ```bash
    curl https://your-frontend.vercel.app/health
    # Expected: "OK"
    ```
 
 2. **Backend Health Check**:
+
    ```bash
    curl https://your-backend.railway.app/health
    # Expected: JSON health status
@@ -643,6 +656,7 @@ The backend requires a platform that supports:
 #### **Monitoring & Analytics**
 
 **Vercel Analytics** (Optional):
+
 ```bash
 # Install Vercel Analytics
 pnpm add @vercel/analytics
@@ -659,6 +673,7 @@ createRoot(document.getElementById('root')!).render(
 ```
 
 **Performance Monitoring**:
+
 - Vercel provides built-in performance metrics
 - Monitor Core Web Vitals in Vercel Dashboard
 - Set up alerts for performance regressions
@@ -668,6 +683,7 @@ createRoot(document.getElementById('root')!).render(
 **Common Issues**:
 
 1. **Build Failures**:
+
    ```bash
    # Check build logs in Vercel Dashboard
    # Common fixes:
@@ -677,6 +693,7 @@ createRoot(document.getElementById('root')!).render(
    ```
 
 2. **API Connection Issues**:
+
    ```bash
    # Verify backend URL is correct
    # Check CORS configuration on backend
@@ -691,6 +708,7 @@ createRoot(document.getElementById('root')!).render(
    ```
 
 **Support Resources**:
+
 - [Vercel Documentation](https://vercel.com/docs)
 - [Vercel Community](https://github.com/vercel/vercel/discussions)
 - [Vite + Vercel Guide](https://vercel.com/docs/frameworks/vite)
@@ -698,6 +716,7 @@ createRoot(document.getElementById('root')!).render(
 #### **Deployment Best Practices**
 
 **Pre-Deployment Checklist**:
+
 - [ ] All tests passing (`pnpm ci:checks`)
 - [ ] Environment variables configured
 - [ ] Backend API deployed and accessible
@@ -707,6 +726,7 @@ createRoot(document.getElementById('root')!).render(
 - [ ] Monitoring and alerts set up
 
 **Post-Deployment Verification**:
+
 - [ ] Frontend loads without errors
 - [ ] Authentication flow works
 - [ ] API endpoints respond correctly
@@ -716,6 +736,7 @@ createRoot(document.getElementById('root')!).render(
 - [ ] Error monitoring active
 
 **Production Monitoring**:
+
 - **Vercel Analytics**: User behavior and performance
 - **Backend Logs**: Application and error logs
 - **Database Monitoring**: Query performance and connections
@@ -724,12 +745,14 @@ createRoot(document.getElementById('root')!).render(
 - **Security Monitoring**: Failed login attempts, suspicious activity
 
 **Backup Strategy**:
+
 - **Database**: Automated daily backups
 - **Code**: Git repository with version control
 - **Environment**: Configuration backups
 - **SSL Certificates**: Automatic renewal monitoring
 
 **Scaling Considerations**:
+
 - **Horizontal Scaling**: Multiple backend instances
 - **Database Scaling**: Read replicas, connection pooling
 - **CDN**: Global content distribution

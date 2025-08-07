@@ -21,6 +21,9 @@ export class QueueService {
         maxRetriesPerRequest: 3, // Add automatic retries for Redis connection
         enableReadyCheck: true,
         retryDelayOnFailover: 100,
+        lazyConnect: true,
+        enableOfflineQueue: false,
+        connectTimeout: 5000,
       },
       defaultJobOptions: {
         removeOnComplete: 10, // Keep last 10 completed jobs
@@ -35,6 +38,11 @@ export class QueueService {
 
     logger.info('QueueService initialized with Redis connection');
 
+    // Add Redis error handling to prevent crashes
+    this.queue.on('error', err => {
+      logger.error({ err }, 'Redis connection error in order-processing queue');
+    });
+
     // Initialize separate system-jobs queue for scheduled/maintenance tasks
     this.systemQueue = new Queue('system-jobs', {
       connection: {
@@ -47,8 +55,17 @@ export class QueueService {
         maxRetriesPerRequest: 3, // Add automatic retries for Redis connection
         enableReadyCheck: true,
         retryDelayOnFailover: 100,
+        lazyConnect: true,
+        enableOfflineQueue: false,
+        connectTimeout: 5000,
       },
     });
+
+    // Add Redis error handling to prevent crashes
+    this.systemQueue.on('error', err => {
+      logger.error({ err }, 'Redis connection error in system-jobs queue');
+    });
+
     logger.info('System jobs queue initialized');
 
     // Initialize dead letter queue for permanently failed jobs
@@ -63,6 +80,9 @@ export class QueueService {
         maxRetriesPerRequest: 3, // Add automatic retries for Redis connection
         enableReadyCheck: true,
         retryDelayOnFailover: 100,
+        lazyConnect: true,
+        enableOfflineQueue: false,
+        connectTimeout: 5000,
       },
       defaultJobOptions: {
         removeOnComplete: 100, // Keep more completed DLQ jobs for analysis
@@ -70,6 +90,12 @@ export class QueueService {
         attempts: 1, // No retries in DLQ
       },
     });
+
+    // Add Redis error handling to prevent crashes
+    this.deadLetterQueue.on('error', err => {
+      logger.error({ err }, 'Redis connection error in dead-letter-queue');
+    });
+
     logger.info('Dead letter queue initialized');
   }
 

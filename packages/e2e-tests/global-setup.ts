@@ -36,6 +36,28 @@ async function globalSetup() {
       tcpTimeout: 5000, // Connection timeout
     });
     console.log('✅ All services are ready!');
+
+    // Second probe 10 seconds later to confirm services stay healthy
+    console.log('⏳ Waiting 10 seconds for services to stabilize...');
+    await new Promise(resolve => setTimeout(resolve, 10000));
+
+    console.log('🔍 Performing second health check...');
+    await waitOn({
+      resources: [backendHealthUrl, frontendHealthUrl],
+      timeout: 30000, // 30 seconds for second check
+      interval: 2000, // Check every 2 seconds
+      validateStatus: status => status >= 200 && status < 400,
+      window: 3000, // Wait for 3 seconds of consecutive success
+      verbose: true,
+      headers: {
+        Accept: 'text/html,application/json',
+        'User-Agent': 'Playwright-E2E-Tests',
+      },
+      strictSSL: false,
+      followRedirect: true,
+      tcpTimeout: 5000,
+    });
+    console.log('✅ Services confirmed stable!');
   } catch (err) {
     console.error('❌ Services did not become ready in time:', err);
 
