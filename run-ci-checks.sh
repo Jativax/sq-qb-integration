@@ -204,20 +204,65 @@ echo "✅ All application services are healthy"
 
 # Additional explicit health check before E2E tests
 echo "ℹ️  Final health verification before E2E tests..."
-echo "ℹ️  Testing backend API endpoints..."
-curl -sf http://127.0.0.1:3001/health || {
-  echo "❌ Backend health endpoint not accessible"
-  exit 1
-}
-curl -sf http://127.0.0.1:3001/ready || {
-  echo "❌ Backend ready endpoint not accessible"
-  exit 1
-}
-echo "ℹ️  Testing frontend accessibility..."
-curl -sf http://127.0.0.1:5173/ || {
-  echo "❌ Frontend not accessible"
-  exit 1
-}
+echo "ℹ️  Testing backend API endpoints with retries..."
+
+# Enhanced backend health check with multiple retries
+timeout 120s bash -c '
+  attempts=0
+  max_attempts=40
+  while [ $attempts -lt $max_attempts ]; do
+    if curl -sf http://127.0.0.1:3001/health > /dev/null 2>&1; then
+      echo "✅ Backend health endpoint accessible"
+      break
+    fi
+    attempts=$((attempts + 1))
+    echo "Attempt $attempts/$max_attempts: Backend health not ready yet..."
+    sleep 3
+  done
+  if [ $attempts -eq $max_attempts ]; then
+    echo "❌ Backend health endpoint not accessible after $max_attempts attempts"
+    exit 1
+  fi
+'
+
+# Test backend ready endpoint
+timeout 60s bash -c '
+  attempts=0
+  max_attempts=20
+  while [ $attempts -lt $max_attempts ]; do
+    if curl -sf http://127.0.0.1:3001/ready > /dev/null 2>&1; then
+      echo "✅ Backend ready endpoint accessible"
+      break
+    fi
+    attempts=$((attempts + 1))
+    echo "Attempt $attempts/$max_attempts: Backend ready not ready yet..."
+    sleep 3
+  done
+  if [ $attempts -eq $max_attempts ]; then
+    echo "❌ Backend ready endpoint not accessible after $max_attempts attempts"
+    exit 1
+  fi
+'
+
+echo "ℹ️  Testing frontend accessibility with retries..."
+timeout 90s bash -c '
+  attempts=0
+  max_attempts=30
+  while [ $attempts -lt $max_attempts ]; do
+    if curl -sf http://127.0.0.1:5173/ > /dev/null 2>&1; then
+      echo "✅ Frontend accessible"
+      break
+    fi
+    attempts=$((attempts + 1))
+    echo "Attempt $attempts/$max_attempts: Frontend not ready yet..."
+    sleep 3
+  done
+  if [ $attempts -eq $max_attempts ]; then
+    echo "❌ Frontend not accessible after $max_attempts attempts"
+    exit 1
+  fi
+'
+
 echo "✅ All endpoints verified and accessible"
 
 # Run Playwright E2E tests, and if they fail, print comprehensive diagnostics
