@@ -56,18 +56,6 @@ class ReconciliationWorkerService {
       }
     );
 
-    // Add Redis error handling to prevent crashes
-    this.worker.on('error', err => {
-      logger.error({ err }, 'Redis connection error in ReconciliationWorker');
-    });
-
-    this.orderQueue.on('error', err => {
-      logger.error(
-        { err },
-        'Redis connection error in ReconciliationWorker queue'
-      );
-    });
-
     logger.info('ReconciliationWorker started and listening for cron jobs');
   }
 

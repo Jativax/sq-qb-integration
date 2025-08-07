@@ -16,6 +16,7 @@ success() {
 cleanup() {
   echo "ℹ️  Performing cleanup..."
   docker compose -f docker-compose.yml -f docker-compose.ci.yml down --volumes || true
+  docker rm -f ci-redis || true
   echo "ℹ️  Cleanup completed"
 }
 
@@ -28,36 +29,61 @@ trap cleanup EXIT
 
 # STEP 1: Code Formatting
 step "1" "Code Formatting Check" "Running Prettier format check across the entire codebase..."
-pnpm format:check
+npx pnpm format:check
 success "Code formatting is consistent"
 
 # STEP 2: Linting
 step "2" "ESLint Code Quality Check" "Running ESLint on frontend and backend code..."
-pnpm lint
+npx pnpm lint
 success "No linting errors found"
 
 # STEP 2.5: Prisma Client Generation (local check)
 step "2.5" "Generating Prisma Client" "Generating Prisma client and types..."
-pnpm --filter backend exec prisma generate --schema prisma/schema.prisma
+npx pnpm --filter backend exec prisma generate --schema prisma/schema.prisma
 success "Prisma client generated"
 
 # STEP 2.6: TypeScript Type Check (local verification)
 step "2.6" "TypeScript Type Check" "Verifying TypeScript types without emit..."
-pnpm --filter backend exec tsc --noEmit
+npx pnpm --filter backend exec tsc --noEmit
 success "TypeScript types verified"
 
 # STEP 3: TypeScript Compilation
 step "3" "TypeScript Compilation Check" "Compiling backend TypeScript..."
-pnpm --filter backend build
+npx pnpm --filter backend build
 success "Backend TypeScript compilation successful"
 
 echo "ℹ️  Compiling frontend TypeScript..."
-pnpm --filter frontend build
+npx pnpm --filter frontend build
 success "Frontend TypeScript compilation successful"
 
 # STEP 4: Backend Tests (Unit & Integration)
 step "4" "Backend Unit & Integration Tests" "Running Jest test suite for backend..."
-pnpm --filter backend test
+
+# Launch ephemeral Redis for unit tests
+echo "ℹ️  Launching ephemeral Redis for unit tests..."
+docker run -d --name ci-redis -p 6380:6379 --health-cmd="redis-cli ping" \
+           --health-interval=5s --health-retries=5 redis:7-alpine
+
+# Wait until the health-check is passing
+echo "⏳ Waiting for Redis to be healthy..."
+attempts=0
+max_attempts=15
+while [ $attempts -lt $max_attempts ]; do
+  if docker inspect --format="{{json .State.Health.Status}}" ci-redis | grep -q "healthy"; then
+    break
+  fi
+  attempts=$((attempts + 1))
+  echo "Attempt $attempts/$max_attempts: Redis not ready yet..."
+  sleep 2
+done
+
+if [ $attempts -eq $max_attempts ]; then
+  echo "❌ Redis failed to become healthy after $max_attempts attempts"
+  exit 1
+fi
+
+echo "✅ Redis is healthy, running Jest tests..."
+REDIS_PORT=6380 npx pnpm --filter backend test
 success "All backend tests passed"
 
 # STEP 5: End-to-End Testing with Docker Environment
@@ -70,9 +96,38 @@ docker compose -f docker-compose.yml up -d db redis pgbouncer
 # Wait for services to be healthy using Docker health checks
 echo "ℹ️  Waiting for services to be healthy..."
 echo "ℹ️  Checking PostgreSQL health..."
-timeout 60s bash -c 'until docker compose -f docker-compose.yml exec -T db pg_isready -U "${POSTGRES_USER:-sq_qb_user}" -d "${POSTGRES_DB:-sq_qb_integration}"; do sleep 2; done'
+attempts=0
+max_attempts=30
+while [ $attempts -lt $max_attempts ]; do
+  if docker compose -f docker-compose.yml exec -T db pg_isready -U "${POSTGRES_USER:-sq_qb_user}" -d "${POSTGRES_DB:-sq_qb_integration}" > /dev/null 2>&1; then
+    break
+  fi
+  attempts=$((attempts + 1))
+  echo "Attempt $attempts/$max_attempts: PostgreSQL not ready yet..."
+  sleep 2
+done
+
+if [ $attempts -eq $max_attempts ]; then
+  echo "❌ PostgreSQL failed to become healthy after $max_attempts attempts"
+  exit 1
+fi
+
 echo "ℹ️  Checking Redis health..."
-timeout 30s bash -c 'until docker compose -f docker-compose.yml exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
+attempts=0
+max_attempts=15
+while [ $attempts -lt $max_attempts ]; do
+  if docker compose -f docker-compose.yml exec -T redis redis-cli ping | grep -q PONG; then
+    break
+  fi
+  attempts=$((attempts + 1))
+  echo "Attempt $attempts/$max_attempts: Redis not ready yet..."
+  sleep 2
+done
+
+if [ $attempts -eq $max_attempts ]; then
+  echo "❌ Redis failed to become healthy after $max_attempts attempts"
+  exit 1
+fi
 
 # Handle Redis memory overcommit warning (optional optimization)
 echo "ℹ️  Configuring Redis memory settings..."
@@ -139,11 +194,11 @@ docker compose -f docker-compose.yml run --rm backend_service_runner \
 
 echo "ℹ️  Applying database migrations..."
 docker compose -f docker-compose.yml run --rm backend_service_runner \
-  pnpm prisma migrate deploy --schema prisma/schema.prisma --skip-generate --noInteractive
+  npx prisma migrate deploy --schema prisma/schema.prisma --skip-generate --noInteractive
 
 echo "ℹ️  Seeding the database..."
 docker compose -f docker-compose.yml run --rm backend_service_runner \
-  pnpm db:seed
+  npx prisma db seed
 
 # Start backend and frontend services for E2E testing
 echo "ℹ️  Starting backend and frontend services for E2E testing..."
@@ -154,51 +209,47 @@ echo "ℹ️  Waiting for application services to be ready..."
 echo "ℹ️  Checking backend health..."
 echo "ℹ️  Backend container status:"
 docker ps --filter name=sq-qb-backend --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" || true
-timeout 180s bash -c '
-  attempts=0
-  max_attempts=60
-  while [ $attempts -lt $max_attempts ]; do
-    response=$(curl -sf http://localhost:3001/health 2>&1) && break
-    attempts=$((attempts + 1))
-    echo "Attempt $attempts/$max_attempts failed: $response"
-    sleep 3
-  done
-  if [ $attempts -eq $max_attempts ]; then
-    echo "❌ Backend health check failed after $max_attempts attempts"
-    exit 1
+attempts=0
+max_attempts=60
+while [ $attempts -lt $max_attempts ]; do
+  if curl -sf http://localhost:3001/health > /dev/null 2>&1; then
+    break
   fi
-' || {
-  echo "❌ Backend failed to become healthy"
+  attempts=$((attempts + 1))
+  echo "Attempt $attempts/$max_attempts: Backend health not ready yet..."
+  sleep 3
+done
+
+if [ $attempts -eq $max_attempts ]; then
+  echo "❌ Backend health check failed after $max_attempts attempts"
   echo "--- Backend Container Status ---"
   docker ps --filter name=sq-qb-backend || true
   echo "--- Backend Logs (Last 200 lines) ---"
   docker logs sq-qb-backend --tail 200 || true
   exit 1
-}
+fi
 echo "ℹ️  Checking frontend health..."
 echo "ℹ️  Frontend container status:"
 docker ps --filter name=sq-qb-frontend --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" || true
-timeout 120s bash -c '
-  attempts=0
-  max_attempts=40
-  while [ $attempts -lt $max_attempts ]; do
-    response=$(curl -sf http://localhost:5173/health 2>&1) && break
-    attempts=$((attempts + 1))
-    echo "Attempt $attempts/$max_attempts failed: $response"
-    sleep 3
-  done
-  if [ $attempts -eq $max_attempts ]; then
-    echo "❌ Frontend health check failed after $max_attempts attempts"
-    exit 1
+attempts=0
+max_attempts=40
+while [ $attempts -lt $max_attempts ]; do
+  if curl -sf http://localhost:5173/health > /dev/null 2>&1; then
+    break
   fi
-' || {
-  echo "❌ Frontend failed to become healthy"
+  attempts=$((attempts + 1))
+  echo "Attempt $attempts/$max_attempts: Frontend health not ready yet..."
+  sleep 3
+done
+
+if [ $attempts -eq $max_attempts ]; then
+  echo "❌ Frontend health check failed after $max_attempts attempts"
   echo "--- Frontend Container Status ---"
   docker ps --filter name=sq-qb-frontend || true
   echo "--- Frontend Logs (Last 200 lines) ---"
   docker logs sq-qb-frontend --tail 200 || true
   exit 1
-}
+fi
 echo "✅ All application services are healthy"
 
 # Additional explicit health check before E2E tests
@@ -206,67 +257,63 @@ echo "ℹ️  Final health verification before E2E tests..."
 echo "ℹ️  Testing backend API endpoints with retries..."
 
 # Enhanced backend health check with multiple retries
-timeout 120s bash -c '
-  attempts=0
-  max_attempts=40
-  while [ $attempts -lt $max_attempts ]; do
-    if curl -sf http://127.0.0.1:3001/health > /dev/null 2>&1; then
-      echo "✅ Backend health endpoint accessible"
-      break
-    fi
-    attempts=$((attempts + 1))
-    echo "Attempt $attempts/$max_attempts: Backend health not ready yet..."
-    sleep 3
-  done
-  if [ $attempts -eq $max_attempts ]; then
-    echo "❌ Backend health endpoint not accessible after $max_attempts attempts"
-    exit 1
+attempts=0
+max_attempts=40
+while [ $attempts -lt $max_attempts ]; do
+  if curl -sf http://127.0.0.1:3001/health > /dev/null 2>&1; then
+    echo "✅ Backend health endpoint accessible"
+    break
   fi
-'
+  attempts=$((attempts + 1))
+  echo "Attempt $attempts/$max_attempts: Backend health not ready yet..."
+  sleep 3
+done
+
+if [ $attempts -eq $max_attempts ]; then
+  echo "❌ Backend health endpoint not accessible after $max_attempts attempts"
+  exit 1
+fi
 
       # Test backend health endpoint (redundant with above, but keeping for consistency)
-      timeout 60s bash -c '
-        attempts=0
-        max_attempts=20
-        while [ $attempts -lt $max_attempts ]; do
-          if curl -sf http://127.0.0.1:3001/health > /dev/null 2>&1; then
-            echo "✅ Backend health endpoint accessible"
-            break
-          fi
-          attempts=$((attempts + 1))
-          echo "Attempt $attempts/$max_attempts: Backend health not ready yet..."
-          sleep 3
-        done
-        if [ $attempts -eq $max_attempts ]; then
-          echo "❌ Backend health endpoint not accessible after $max_attempts attempts"
-          exit 1
+      attempts=0
+      max_attempts=20
+      while [ $attempts -lt $max_attempts ]; do
+        if curl -sf http://127.0.0.1:3001/health > /dev/null 2>&1; then
+          echo "✅ Backend health endpoint accessible"
+          break
         fi
-      '
+        attempts=$((attempts + 1))
+        echo "Attempt $attempts/$max_attempts: Backend health not ready yet..."
+        sleep 3
+      done
+      if [ $attempts -eq $max_attempts ]; then
+        echo "❌ Backend health endpoint not accessible after $max_attempts attempts"
+        exit 1
+      fi
 
 echo "ℹ️  Testing frontend accessibility with retries..."
-timeout 90s bash -c '
-  attempts=0
-  max_attempts=30
-  while [ $attempts -lt $max_attempts ]; do
-    if curl -sf http://127.0.0.1:5173/ > /dev/null 2>&1; then
-      echo "✅ Frontend accessible"
-      break
-    fi
-    attempts=$((attempts + 1))
-    echo "Attempt $attempts/$max_attempts: Frontend not ready yet..."
-    sleep 3
-  done
-  if [ $attempts -eq $max_attempts ]; then
-    echo "❌ Frontend not accessible after $max_attempts attempts"
-    exit 1
+attempts=0
+max_attempts=30
+while [ $attempts -lt $max_attempts ]; do
+  if curl -sf http://127.0.0.1:5173/ > /dev/null 2>&1; then
+    echo "✅ Frontend accessible"
+    break
   fi
-'
+  attempts=$((attempts + 1))
+  echo "Attempt $attempts/$max_attempts: Frontend not ready yet..."
+  sleep 3
+done
+
+if [ $attempts -eq $max_attempts ]; then
+  echo "❌ Frontend not accessible after $max_attempts attempts"
+  exit 1
+fi
 
 echo "✅ All endpoints verified and accessible"
 
 # Run Playwright E2E tests, and if they fail, print comprehensive diagnostics
 echo "ℹ️  Running Playwright E2E tests against the live environment..."
-if ! pnpm --filter @sq-qb-integration/e2e-tests test; then
+if ! npx pnpm --filter @sq-qb-integration/e2e-tests test; then
   echo "❌ E2E tests failed. Dumping comprehensive diagnostics..."
   
   echo "--- Service Status ---"

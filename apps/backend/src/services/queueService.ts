@@ -38,11 +38,6 @@ export class QueueService {
 
     logger.info('QueueService initialized with Redis connection');
 
-    // Add Redis error handling to prevent crashes
-    this.queue.on('error', err => {
-      logger.error({ err }, 'Redis connection error in order-processing queue');
-    });
-
     // Initialize separate system-jobs queue for scheduled/maintenance tasks
     this.systemQueue = new Queue('system-jobs', {
       connection: {
@@ -59,11 +54,6 @@ export class QueueService {
         enableOfflineQueue: false,
         connectTimeout: 5000,
       },
-    });
-
-    // Add Redis error handling to prevent crashes
-    this.systemQueue.on('error', err => {
-      logger.error({ err }, 'Redis connection error in system-jobs queue');
     });
 
     logger.info('System jobs queue initialized');
@@ -89,11 +79,6 @@ export class QueueService {
         removeOnFail: 100,
         attempts: 1, // No retries in DLQ
       },
-    });
-
-    // Add Redis error handling to prevent crashes
-    this.deadLetterQueue.on('error', err => {
-      logger.error({ err }, 'Redis connection error in dead-letter-queue');
     });
 
     logger.info('Dead letter queue initialized');
