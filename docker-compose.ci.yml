@@ -54,11 +54,12 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3001/health']
+      test:
+        ['CMD-SHELL', 'wget -q --spider http://localhost:3001/health || exit 1']
       interval: 10s
       timeout: 5s
-      retries: 30
-      start_period: 40s
+      retries: 20
+      start_period: 90s
     networks:
       - sq-qb-network
 
@@ -88,11 +89,12 @@ services:
         condition: service_healthy
       # Remove pgbouncer dependency
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3001/health']
+      test:
+        ['CMD-SHELL', 'wget -q --spider http://localhost:3001/health || exit 1']
       interval: 10s
       timeout: 5s
-      retries: 30
-      start_period: 40s
+      retries: 20
+      start_period: 90s
     networks:
       - sq-qb-network
 
@@ -104,10 +106,10 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost/']
+      test: ['CMD-SHELL', 'wget -q --spider http://localhost/health || exit 1']
       interval: 10s
       timeout: 5s
-      retries: 30
-      start_period: 40s
+      retries: 20
+      start_period: 30s
     networks:
       - sq-qb-network

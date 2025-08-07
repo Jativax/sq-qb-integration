@@ -80,7 +80,11 @@ WORKDIR /app
 # Copy deploy artifacts to production stage
 COPY --from=builder /app/deploy .
 
+# Copy startup script
+COPY apps/backend/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 RUN chown -R appuser:appgroup /app
 USER appuser
 EXPOSE 3001
-CMD ["node","dist/server.js"]
+CMD ["/app/start.sh"]

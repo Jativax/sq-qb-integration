@@ -196,16 +196,13 @@ jobs:
           timeout 120s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T db pg_isready -U testuser -d testdb; do sleep 2; done'
           timeout 30s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
 
-          echo "✅ Infrastructure services are healthy"
+                    echo "✅ Infrastructure services are healthy"
 
           echo "🚀 Starting backend and frontend services..."
           docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d backend frontend
 
-          echo "⏳ Waiting for backend to be healthy..."
-          timeout 60s bash -c 'until curl -f http://localhost:3001/health > /dev/null 2>&1; do sleep 2; done'
-
-          echo "⏳ Waiting for frontend to be accessible..."
-          timeout 60s bash -c 'until curl -f http://localhost:5173/ > /dev/null 2>&1; do sleep 2; done'
+          echo "⏳ Waiting for services to be ready..."
+          npx wait-on http-get://127.0.0.1:3001/health http-get://127.0.0.1:5173/health --timeout=120000 --interval=2000
 
           echo "✅ All services are ready!"
 
