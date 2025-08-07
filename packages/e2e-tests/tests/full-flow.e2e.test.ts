@@ -44,7 +44,7 @@ const VALID_WEBHOOK_PAYLOAD = {
 
 // Helper function to clear test data
 async function clearTestData() {
-  const response = await fetch('http://localhost:3001/api/test/clear', {
+  const response = await fetch('http://127.0.0.1:3001/api/test/clear', {
     method: 'POST',
   });
 
@@ -57,7 +57,7 @@ async function clearTestData() {
 
 // Helper function to send webhook
 async function sendWebhook(payload = VALID_WEBHOOK_PAYLOAD) {
-  const response = await fetch('http://localhost:3001/api/v1/webhooks/square', {
+  const response = await fetch('http://127.0.0.1:3001/api/v1/webhooks/square', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -80,7 +80,7 @@ async function waitForMetricsUpdate(page: Page, timeout = 10000) {
 
 // Helper function to enable forced failure
 async function enableForcedFailure() {
-  const response = await fetch('http://localhost:3001/api/test/force-failure', {
+  const response = await fetch('http://127.0.0.1:3001/api/test/force-failure', {
     method: 'POST',
   });
 
@@ -94,7 +94,7 @@ async function enableForcedFailure() {
 // Helper function to disable forced failure
 async function disableForcedFailure() {
   const response = await fetch(
-    'http://localhost:3001/api/test/disable-failure',
+    'http://127.0.0.1:3001/api/test/disable-failure',
     {
       method: 'POST',
     }

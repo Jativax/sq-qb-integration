@@ -13,7 +13,7 @@ async function clearTestData() {
   console.log('🧹 Final cleanup of test data...');
 
   try {
-    const response = await fetch('http://localhost:3001/api/test/clear', {
+    const response = await fetch('http://127.0.0.1:3001/api/test/clear', {
       method: 'POST',
     });
 
