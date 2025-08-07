@@ -34,7 +34,7 @@ jobs:
 
       # Step 3: Install dependencies
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       # Step 3.5: Configure system for Redis
       - name: Configure System for Redis
