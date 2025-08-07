@@ -150,6 +150,7 @@ jobs:
           POSTGRES_USER: testuser
           POSTGRES_PASSWORD: testpass
           POSTGRES_DB: testdb
+          DATABASE_URL: postgresql://testuser:testpass@db:5432/testdb?schema=public
           REDIS_HOST: localhost
           REDIS_PORT: 6379
           SQUARE_ENVIRONMENT: sandbox
@@ -168,6 +169,25 @@ jobs:
 
             # Step 4.1: Start Docker Services for E2E Tests
       - name: Start Docker Services for E2E Tests
+        env:
+          NODE_ENV: test
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+          DATABASE_URL: postgresql://testuser:testpass@db:5432/testdb?schema=public
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          SQUARE_ENVIRONMENT: sandbox
+          QB_ENVIRONMENT: sandbox
+          PORT: 3001
+          SQUARE_WEBHOOK_SIGNATURE_KEY: test-signature-key
+          SQUARE_WEBHOOK_URL: http://localhost:3001/api/v1/webhooks/square
+          SQUARE_ACCESS_TOKEN: test-token
+          SQUARE_APPLICATION_ID: test-app-id
+          QB_ACCESS_TOKEN: test-token
+          QB_REALM_ID: test-realm
+          PASSWORD_PEPPER: test-pepper-at-least-16-chars
+          WORKER_CONCURRENCY: 1
         run: |
           echo "🐳 Starting Docker services for E2E tests..."
           pnpm docker:up:ci:direct
@@ -178,9 +198,39 @@ jobs:
 
           echo "✅ Infrastructure services are healthy"
 
+          echo "🚀 Starting backend and frontend services..."
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d backend frontend
+
+          echo "⏳ Waiting for backend to be healthy..."
+          timeout 60s bash -c 'until curl -f http://localhost:3001/health > /dev/null 2>&1; do sleep 2; done'
+
+          echo "⏳ Waiting for frontend to be accessible..."
+          timeout 60s bash -c 'until curl -f http://localhost:5173/ > /dev/null 2>&1; do sleep 2; done'
+
+          echo "✅ All services are ready!"
+
       # Step 4.2: Run E2E Tests with Debugging and Retry
       - name: Run E2E Tests with Debugging and Retry
         if: always()
+        env:
+          NODE_ENV: test
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+          DATABASE_URL: postgresql://testuser:testpass@db:5432/testdb?schema=public
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          SQUARE_ENVIRONMENT: sandbox
+          QB_ENVIRONMENT: sandbox
+          PORT: 3001
+          SQUARE_WEBHOOK_SIGNATURE_KEY: test-signature-key
+          SQUARE_WEBHOOK_URL: http://localhost:3001/api/v1/webhooks/square
+          SQUARE_ACCESS_TOKEN: test-token
+          SQUARE_APPLICATION_ID: test-app-id
+          QB_ACCESS_TOKEN: test-token
+          QB_REALM_ID: test-realm
+          PASSWORD_PEPPER: test-pepper-at-least-16-chars
+          WORKER_CONCURRENCY: 1
         run: |
           set +e  # Don't exit on error
 
