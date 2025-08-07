@@ -105,6 +105,22 @@ jobs:
           # Use Playwright's built-in dependency installer as a fallback
           npx playwright install-deps || echo "Some dependencies may already be installed"
 
+      # Step 3.9: Build Frontend for E2E Tests
+      - name: Build Frontend for E2E Tests
+        run: |
+          npx pnpm --filter frontend build
+          echo "✅ Frontend built successfully"
+          ls -la apps/frontend/dist/
+
+      # Step 3.10: Verify Frontend Build
+      - name: Verify Frontend Build
+        run: |
+          if [ ! -f "apps/frontend/dist/index.html" ]; then
+            echo "❌ Frontend build failed - index.html not found"
+            exit 1
+          fi
+          echo "✅ Frontend build verified"
+
       # Step 4: Run comprehensive CI checks
       - name: Run CI checks
         run: pnpm ci:checks
@@ -128,6 +144,34 @@ jobs:
           QB_REALM_ID: test-realm
           PASSWORD_PEPPER: test-pepper-at-least-16-chars
           WORKER_CONCURRENCY: 1
+
+      # Step 4.1: Run E2E Tests with Debugging (if CI checks pass)
+      - name: Run E2E Tests with Debugging
+        if: always()
+        run: |
+          set +e  # Don't exit on error
+          npx pnpm test:e2e
+          TEST_EXIT_CODE=$?
+
+          if [ $TEST_EXIT_CODE -ne 0 ]; then
+            echo "❌ E2E tests failed with exit code $TEST_EXIT_CODE"
+            echo "📋 Collecting debug information..."
+            
+            # Show container logs
+            docker compose logs --tail=50 backend
+            docker compose logs --tail=50 frontend
+            
+            # Check service health
+            docker compose ps
+            
+            # Test endpoints manually
+            curl -f http://localhost:3001/health || echo "Backend health check failed"
+            curl -f http://localhost:5173 || echo "Frontend not accessible"
+            
+            exit $TEST_EXIT_CODE
+          fi
+
+          echo "✅ E2E tests passed successfully"
 
       # Step 5: Set up Docker Buildx for advanced build features
       - name: Set up Docker Buildx

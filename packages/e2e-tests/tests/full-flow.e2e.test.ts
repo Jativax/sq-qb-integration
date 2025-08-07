@@ -81,10 +81,40 @@ async function clearTestData() {
   }
 }
 
-// Helper function to send webhook
-async function sendWebhook(payload = VALID_WEBHOOK_PAYLOAD) {
-  // Add retry logic with exponential backoff for rate limiting
-  for (let attempt = 0; attempt < 3; attempt++) {
+// Helper function to send webhook with retry logic
+async function sendWebhookWithRetry(
+  orderId?: string,
+  eventId?: string,
+  retries = 3
+): Promise<Response> {
+  const testOrderId = orderId || `order-${Date.now()}`;
+  const testEventId =
+    eventId || `test-event-${Math.floor(Math.random() * 1000)}`;
+
+  const webhook = {
+    type: 'order.fulfilled',
+    event_id: testEventId,
+    created_at: new Date().toISOString(),
+    data: {
+      type: 'order',
+      id: testOrderId,
+      object: {
+        order: {
+          id: testOrderId,
+          location_id: 'test-location-456',
+          state: 'COMPLETED',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          total_money: {
+            amount: 5000,
+            currency: 'USD',
+          },
+        },
+      },
+    },
+  };
+
+  for (let attempt = 0; attempt < retries; attempt++) {
     try {
       const response = await fetch(
         'http://127.0.0.1:3001/api/v1/webhooks/square',
@@ -94,15 +124,17 @@ async function sendWebhook(payload = VALID_WEBHOOK_PAYLOAD) {
             'Content-Type': 'application/json',
             'X-Square-Signature': 'BYPASS_FOR_E2E_TEST', // Use bypass for E2E tests
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(webhook),
         }
       );
 
-      // If it's a rate limit error, wait and retry
       if (response.status === 429) {
-        const waitTime = 1000 * Math.pow(2, attempt);
+        // Rate limited - wait before retry
+        const waitTime = Math.pow(2, attempt) * 1000; // Exponential backoff
         console.log(
-          `⚠️ Rate limited, waiting ${waitTime}ms before retry ${attempt + 1}/3`
+          `⚠️ Rate limited, waiting ${waitTime}ms before retry ${
+            attempt + 1
+          }/${retries}`
         );
         await new Promise(resolve => setTimeout(resolve, waitTime));
         continue;
@@ -110,16 +142,25 @@ async function sendWebhook(payload = VALID_WEBHOOK_PAYLOAD) {
 
       return response;
     } catch (error) {
-      if (attempt === 2) {
+      if (attempt === retries - 1) {
         throw error; // Re-throw on final attempt
       }
-      const waitTime = 1000 * Math.pow(2, attempt);
+      const waitTime = Math.pow(2, attempt) * 1000;
       console.log(
-        `⚠️ Request failed, waiting ${waitTime}ms before retry ${attempt + 1}/3`
+        `⚠️ Request failed, waiting ${waitTime}ms before retry ${
+          attempt + 1
+        }/${retries}`
       );
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
   }
+
+  throw new Error('Max retries reached for webhook request');
+}
+
+// Legacy function for backward compatibility
+async function sendWebhook(_payload = VALID_WEBHOOK_PAYLOAD) {
+  return sendWebhookWithRetry();
 }
 
 // Helper function to wait for UI updates

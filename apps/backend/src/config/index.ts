@@ -38,6 +38,11 @@ const configSchema = z.object({
   SQUARE_WEBHOOK_SIGNATURE_KEY: z
     .string()
     .min(1, 'SQUARE_WEBHOOK_SIGNATURE_KEY is required'),
+  SQUARE_WEBHOOK_URL: z
+    .string()
+    .url()
+    .optional()
+    .default('http://localhost:3001/api/v1/webhooks/square'),
   SQUARE_ACCESS_TOKEN: z.string().default('test-square-token'),
   SQUARE_APPLICATION_ID: z.string().default('test-app-id'),
   SQUARE_ENVIRONMENT: z.enum(['sandbox', 'production']).default('sandbox'),
@@ -329,6 +334,7 @@ export const {
   REDIS_PASSWORD,
   REDIS_DB,
   SQUARE_WEBHOOK_SIGNATURE_KEY,
+  SQUARE_WEBHOOK_URL,
   SQUARE_ACCESS_TOKEN,
   SQUARE_APPLICATION_ID,
   SQUARE_ENVIRONMENT,
