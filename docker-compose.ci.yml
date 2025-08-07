@@ -5,7 +5,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: ./apps/backend/Dockerfile.ci-minimal
+      dockerfile: ./apps/backend/Dockerfile.ci-fixed
     container_name: sq-qb-backend
     ports:
       - '127.0.0.1:3001:3001'
