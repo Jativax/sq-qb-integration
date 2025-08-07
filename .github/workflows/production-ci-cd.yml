@@ -166,7 +166,19 @@ jobs:
           WORKER_CONCURRENCY:
             1
 
-            # Step 4.1: Run E2E Tests with Debugging and Retry
+            # Step 4.1: Start Docker Services for E2E Tests
+      - name: Start Docker Services for E2E Tests
+        run: |
+          echo "🐳 Starting Docker services for E2E tests..."
+          pnpm docker:up:ci:direct
+
+          echo "⏳ Waiting for services to be healthy..."
+          timeout 120s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T db pg_isready -U testuser -d testdb; do sleep 2; done'
+          timeout 30s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
+
+          echo "✅ Infrastructure services are healthy"
+
+      # Step 4.2: Run E2E Tests with Debugging and Retry
       - name: Run E2E Tests with Debugging and Retry
         if: always()
         run: |
@@ -188,7 +200,7 @@ jobs:
             if [ $attempt -lt $MAX_ATTEMPTS ]; then
               echo "❌ E2E tests failed on attempt $attempt, retrying..."
               echo "🔄 Restarting services and waiting..."
-              docker compose restart backend frontend
+              docker compose -f docker-compose.yml -f docker-compose.ci.yml restart backend frontend
               sleep 10
             fi
           done

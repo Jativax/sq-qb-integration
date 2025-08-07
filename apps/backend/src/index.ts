@@ -17,7 +17,6 @@ import logger from './services/logger';
 import { getPrismaClient, disconnectPrisma } from './services/db';
 import config, {
   HEALTH_PATH,
-  READY_PATH,
   METRICS_PATH,
   CORS_ORIGIN,
   CORS_CREDENTIALS,
@@ -237,7 +236,7 @@ async function startServer(): Promise<void> {
         'Prometheus metrics available'
       );
       logger.info(
-        { liveness: HEALTH_PATH, readiness: READY_PATH },
+        { liveness: HEALTH_PATH },
         'Health check endpoints available'
       );
       logger.info('Background job worker started for order processing');
