@@ -204,6 +204,9 @@ jobs:
           echo "🗄️ Running database migrations..."
           docker compose -f docker-compose.yml -f docker-compose.ci.yml run --rm backend npm run db:migrate
 
+          echo "🌱 Seeding database..."
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml run --rm backend node dist/prisma/seed.js
+
           echo "📋 Checking container status after migration..."
           docker compose -f docker-compose.yml -f docker-compose.ci.yml ps
 

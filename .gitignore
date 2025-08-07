@@ -47,6 +47,10 @@ coverage/
 tmp/
 temp/
 
+# Playwright outputs
+packages/e2e-tests/test-results/
+packages/e2e-tests/playwright-report/
+
 # Runtime data
 pids/
 *.pid

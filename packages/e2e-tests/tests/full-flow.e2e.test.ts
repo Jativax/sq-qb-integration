@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import crypto from 'crypto';
 
 // Sample webhook payload for testing
 const VALID_WEBHOOK_PAYLOAD = {
@@ -88,8 +89,7 @@ async function sendWebhookWithRetry(
   retries = 3
 ): Promise<Response> {
   const testOrderId = orderId || `order-${Date.now()}`;
-  const testEventId =
-    eventId || `test-event-${Math.floor(Math.random() * 1000)}`;
+  const testEventId = eventId || crypto.randomUUID();
 
   const webhook = {
     type: 'order.fulfilled',

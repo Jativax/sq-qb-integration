@@ -53,6 +53,9 @@ services:
         condition: service_healthy
     environment:
       - VITE_API_BASE_URL=http://backend:3001
+      - VITE_E2E_AUTO_LOGIN=true
+      - VITE_E2E_EMAIL=admin@sqqb.com
+      - VITE_E2E_PASSWORD=admin123
     healthcheck:
       test:
         [

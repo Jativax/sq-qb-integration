@@ -15,7 +15,8 @@ RUN pnpm install --frozen-lockfile
 # build the backend + generate Prisma client
 COPY apps/backend ./apps/backend
 RUN pnpm --filter ./apps/backend exec prisma generate \
- && pnpm --filter ./apps/backend run build
+ && pnpm --filter ./apps/backend run build \
+ && pnpm --filter ./apps/backend run build:seed
 
 ### --- runtime (prod) -----------------------------------------------------
 FROM node:18-alpine AS runtime
