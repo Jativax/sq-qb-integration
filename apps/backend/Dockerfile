@@ -26,9 +26,11 @@ COPY apps/backend/ ./apps/backend/
 # Generate Prisma Client (already correct)
 RUN pnpm --filter backend exec prisma generate --schema prisma/schema.prisma
 
-# Build backend + seed (explicit)
-RUN pnpm --filter backend run build \
- && pnpm --filter backend run build:seed
+# Build backend first (creates dist/ structure)
+RUN pnpm --filter backend run build
+
+# Build seed after main build (depends on dist/ structure)
+RUN pnpm --filter backend run build:seed
 
 # Ensure seed.js is properly generated and copied
 RUN set -eux; \
