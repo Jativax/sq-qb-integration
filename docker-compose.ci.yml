@@ -4,7 +4,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: ./apps/backend/Dockerfile.ci-fixed
+      dockerfile: ./apps/backend/Dockerfile.ci
     container_name: sq-qb-backend
     ports:
       - '127.0.0.1:3001:3001'
@@ -14,7 +14,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - NODE_ENV=ci
+      - NODE_ENV=test
       - DATABASE_URL=postgresql://sq_qb_user:your_secure_password@db:5432/sq_qb_integration?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
