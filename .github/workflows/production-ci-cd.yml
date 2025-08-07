@@ -86,11 +86,19 @@ jobs:
             libffi8 \
             libx264-164 \
             libflite1 \
-            libgles2
+            libgles2 \
+            libhyphen0 \
+            libmanette-0.2-0
 
       # Step 3.7: Install Playwright browsers
       - name: Install Playwright browsers
         run: pnpm --filter @sq-qb-integration/e2e-tests install-browsers
+
+      # Step 3.8: Install any additional Playwright dependencies (fallback)
+      - name: Install additional Playwright dependencies
+        run: |
+          # Use Playwright's built-in dependency installer as a fallback
+          npx playwright install-deps || echo "Some dependencies may already be installed"
 
       # Step 4: Run comprehensive CI checks
       - name: Run CI checks
