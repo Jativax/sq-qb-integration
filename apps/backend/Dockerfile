@@ -62,7 +62,7 @@ RUN set -eux; \
       echo "=== Checking TypeScript build info:"; \
       find apps/backend -name "*.tsbuildinfo" -type f -print || echo "No tsbuildinfo files found"; \
       echo "=== Checking TypeScript compilation errors ==="; \
-      cd apps/backend && pnpm run build:seed --verbose || echo "TypeScript compilation failed"; \
+      cd apps/backend && pnpm run build:seed || echo "TypeScript compilation failed"; \
       exit 1; \
     fi
 
