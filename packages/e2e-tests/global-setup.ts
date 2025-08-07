@@ -13,14 +13,14 @@ async function globalSetup() {
 
   // Use IPv4 addresses explicitly to avoid IPv6 issues in CI
   const backendHealthUrl = 'http://127.0.0.1:3001/health';
-  const frontendRootUrl = 'http://127.0.0.1:5173/';
+  const frontendHealthUrl = 'http://127.0.0.1:5173/health';
 
   console.log(`   - Backend Health: ${backendHealthUrl}`);
-  console.log(`   - Frontend: ${frontendRootUrl}`);
+  console.log(`   - Frontend Health: ${frontendHealthUrl}`);
 
   try {
     await waitOn({
-      resources: [backendHealthUrl, frontendRootUrl],
+      resources: [backendHealthUrl, frontendHealthUrl],
       timeout: 180000, // 3 minutes for CI cold starts
       interval: 3000, // Check every 3 seconds
       validateStatus: status => status >= 200 && status < 400,
@@ -46,8 +46,8 @@ async function globalSetup() {
       execSync('curl -v http://127.0.0.1:3001/health || true', {
         stdio: 'inherit',
       });
-      console.log('Backend ready check (IPv4):');
-      execSync('curl -v http://127.0.0.1:3001/ready || true', {
+      console.log('Backend health check (IPv4):');
+      execSync('curl -v http://127.0.0.1:3001/health || true', {
         stdio: 'inherit',
       });
       console.log('Frontend root check (IPv4):');

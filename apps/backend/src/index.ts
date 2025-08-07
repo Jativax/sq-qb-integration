@@ -110,50 +110,6 @@ app.get(HEALTH_PATH, (req, res) => {
   res.status(status).json(responseBody);
 });
 
-// Readiness probe - validates all dependencies are ready
-app.get(READY_PATH, async (req, res) => {
-  if (isShuttingDown) {
-    return res.status(503).json({
-      status: 'shutting_down',
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  const checks = {
-    database: false,
-    redis: false,
-    queue: false,
-  };
-
-  try {
-    // Database connectivity check
-    await prisma.$queryRaw`SELECT 1`;
-    checks.database = true;
-  } catch (error) {
-    logger.warn({ err: error }, 'Database readiness check failed');
-  }
-
-  try {
-    // Redis/Queue connectivity check
-    if (queueService) {
-      const stats = await queueService.getQueueStats();
-      checks.redis = true;
-      checks.queue = stats !== null;
-    }
-  } catch (error) {
-    logger.warn({ err: error }, 'Redis/Queue readiness check failed');
-  }
-
-  const allReady = Object.values(checks).every(Boolean);
-  const status = allReady ? 200 : 503;
-
-  return res.status(status).json({
-    status: allReady ? 'ready' : 'not_ready',
-    timestamp: new Date().toISOString(),
-    checks,
-  });
-});
-
 // Prometheus metrics endpoint
 app.get(METRICS_PATH, async (req, res) => {
   try {
@@ -174,7 +130,6 @@ app.get('/', (req, res) => {
     timestamp: new Date().toISOString(),
     endpoints: {
       health: HEALTH_PATH,
-      ready: READY_PATH,
       metrics: METRICS_PATH,
     },
   });

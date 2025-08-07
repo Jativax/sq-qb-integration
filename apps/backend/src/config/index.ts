@@ -79,7 +79,6 @@ const configSchema = z.object({
 
 // Health check endpoints constants
 export const HEALTH_PATH = '/health';
-export const READY_PATH = '/ready';
 export const METRICS_PATH = '/metrics';
 
 // Export the configuration type for use throughout the application

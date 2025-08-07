@@ -225,24 +225,24 @@ timeout 120s bash -c '
   fi
 '
 
-# Test backend ready endpoint
-timeout 60s bash -c '
-  attempts=0
-  max_attempts=20
-  while [ $attempts -lt $max_attempts ]; do
-    if curl -sf http://127.0.0.1:3001/ready > /dev/null 2>&1; then
-      echo "✅ Backend ready endpoint accessible"
-      break
-    fi
-    attempts=$((attempts + 1))
-    echo "Attempt $attempts/$max_attempts: Backend ready not ready yet..."
-    sleep 3
-  done
-  if [ $attempts -eq $max_attempts ]; then
-    echo "❌ Backend ready endpoint not accessible after $max_attempts attempts"
-    exit 1
-  fi
-'
+      # Test backend health endpoint (redundant with above, but keeping for consistency)
+      timeout 60s bash -c '
+        attempts=0
+        max_attempts=20
+        while [ $attempts -lt $max_attempts ]; do
+          if curl -sf http://127.0.0.1:3001/health > /dev/null 2>&1; then
+            echo "✅ Backend health endpoint accessible"
+            break
+          fi
+          attempts=$((attempts + 1))
+          echo "Attempt $attempts/$max_attempts: Backend health not ready yet..."
+          sleep 3
+        done
+        if [ $attempts -eq $max_attempts ]; then
+          echo "❌ Backend health endpoint not accessible after $max_attempts attempts"
+          exit 1
+        fi
+      '
 
 echo "ℹ️  Testing frontend accessibility with retries..."
 timeout 90s bash -c '
