@@ -192,17 +192,32 @@ jobs:
           echo "🐳 Starting Docker services for E2E tests..."
           pnpm docker:up:ci:direct
 
+          echo "📋 Checking container status..."
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml ps
+
           echo "⏳ Waiting for services to be healthy..."
-          timeout 120s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T db pg_isready -U testuser -d testdb; do sleep 2; done'
+          timeout 120s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T db pg_isready -U testuser -d testdb; do echo "Waiting for database..."; sleep 2; done'
           timeout 30s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
 
                     echo "✅ Infrastructure services are healthy"
 
+          echo "🗄️ Running database migrations..."
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml run --rm backend npm run db:migrate
+
+          echo "📋 Checking container status after migration..."
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml ps
+
           echo "🚀 Starting backend and frontend services..."
+          # Services are already started by docker:up:ci:direct, just ensure they're running
           docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d backend frontend
 
+          echo "📋 Checking container status after starting services..."
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml ps
+
           echo "⏳ Waiting for services to be ready..."
-          npx wait-on http-get://127.0.0.1:3001/health http-get://127.0.0.1:5173/health --timeout=120000 --interval=2000
+          # Use a more robust health check approach
+          timeout 120s bash -c 'until curl -f http://127.0.0.1:3001/health; do echo "Waiting for backend..."; sleep 5; done'
+          timeout 60s bash -c 'until curl -f http://127.0.0.1:5173/health; do echo "Waiting for frontend..."; sleep 5; done'
 
           echo "✅ All services are ready!"
 
@@ -257,15 +272,15 @@ jobs:
             echo "📋 Collecting debug information..."
             
             # Show container logs
-            docker compose logs --tail=50 backend
-            docker compose logs --tail=50 frontend
+            docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --tail=50 backend
+            docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --tail=50 frontend
             
             # Check service health
-            docker compose ps
+            docker compose -f docker-compose.yml -f docker-compose.ci.yml ps
             
             # Test endpoints manually
-            curl -f http://localhost:3001/health || echo "Backend health check failed"
-            curl -f http://localhost:5173 || echo "Frontend not accessible"
+            curl -f http://127.0.0.1:3001/health || echo "Backend health check failed"
+            curl -f http://127.0.0.1:5173/health || echo "Frontend not accessible"
             
             exit $TEST_EXIT_CODE
           fi

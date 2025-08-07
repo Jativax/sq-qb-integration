@@ -7,16 +7,16 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-sq_qb_integration}
-      POSTGRES_USER: ${POSTGRES_USER:-sq_qb_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-testdb}
+      POSTGRES_USER: ${POSTGRES_USER:-testuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-testpass}
     ports:
       - '5432:5432'
     healthcheck:
       test:
         [
           'CMD-SHELL',
-          'pg_isready -U ${POSTGRES_USER:-sq_qb_user} -d ${POSTGRES_DB:-sq_qb_integration}',
+          'pg_isready -U ${POSTGRES_USER:-testuser} -d ${POSTGRES_DB:-testdb}',
         ]
       interval: 10s
       timeout: 5s
@@ -45,9 +45,9 @@ services:
     environment:
       - DB_HOST=db
       - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER:-sq_qb_user}
-      - DB_PASSWORD=${POSTGRES_PASSWORD:-your_secure_password}
-      - DB_NAME=${POSTGRES_DB:-sq_qb_integration}
+      - DB_USER=${POSTGRES_USER:-testuser}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-testpass}
+      - DB_NAME=${POSTGRES_DB:-testdb}
       - POOL_MODE=transaction
       - MAX_CLIENT_CONN=100
       - DEFAULT_POOL_SIZE=20
@@ -72,10 +72,11 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-sq_qb_user}:${POSTGRES_PASSWORD:-your_secure_password}@db:5432/${POSTGRES_DB:-sq_qb_integration}?schema=public
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-testuser}:${POSTGRES_PASSWORD:-testpass}@db:5432/${POSTGRES_DB:-testdb}?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - NODE_ENV=development
+      - NODE_ENV=test
 
 volumes:
   pgdata:

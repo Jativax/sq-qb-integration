@@ -15,7 +15,7 @@ services:
         condition: service_healthy
     environment:
       - NODE_ENV=test
-      - DATABASE_URL=postgresql://sq_qb_user:your_secure_password@db:5432/sq_qb_integration?schema=public
+      - DATABASE_URL=postgresql://testuser:testpass@db:5432/testdb?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - HOST=0.0.0.0
