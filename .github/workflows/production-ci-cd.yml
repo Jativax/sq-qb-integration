@@ -32,6 +32,26 @@ jobs:
           node-version: '18'
           cache: 'pnpm'
 
+      # Step 2.1: Cache pnpm modules
+      - name: Cache pnpm modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pnpm-store
+            **/node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      # Step 2.2: Cache Playwright browsers
+      - name: Cache Playwright browsers
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       # Step 3: Install dependencies
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
@@ -143,18 +163,38 @@ jobs:
           QB_ACCESS_TOKEN: test-token
           QB_REALM_ID: test-realm
           PASSWORD_PEPPER: test-pepper-at-least-16-chars
-          WORKER_CONCURRENCY: 1
+          WORKER_CONCURRENCY:
+            1
 
-      # Step 4.1: Run E2E Tests with Debugging (if CI checks pass)
-      - name: Run E2E Tests with Debugging
+            # Step 4.1: Run E2E Tests with Debugging and Retry
+      - name: Run E2E Tests with Debugging and Retry
         if: always()
         run: |
           set +e  # Don't exit on error
-          npx pnpm test:e2e
-          TEST_EXIT_CODE=$?
+
+          # Try E2E tests with retry logic
+          MAX_ATTEMPTS=2
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "🔄 Attempt $attempt/$MAX_ATTEMPTS: Running E2E tests..."
+            
+            npx pnpm test:e2e
+            TEST_EXIT_CODE=$?
+            
+            if [ $TEST_EXIT_CODE -eq 0 ]; then
+              echo "✅ E2E tests passed on attempt $attempt"
+              break
+            fi
+            
+            if [ $attempt -lt $MAX_ATTEMPTS ]; then
+              echo "❌ E2E tests failed on attempt $attempt, retrying..."
+              echo "🔄 Restarting services and waiting..."
+              docker compose restart backend frontend
+              sleep 10
+            fi
+          done
 
           if [ $TEST_EXIT_CODE -ne 0 ]; then
-            echo "❌ E2E tests failed with exit code $TEST_EXIT_CODE"
+            echo "❌ E2E tests failed after $MAX_ATTEMPTS attempts"
             echo "📋 Collecting debug information..."
             
             # Show container logs

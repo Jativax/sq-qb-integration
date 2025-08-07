@@ -82,6 +82,44 @@ npx pnpm dev:all
 
 The backend will be available at `http://localhost:3001` and the frontend at `http://localhost:5173`.
 
+## 🚀 **CI/CD Pipeline**
+
+### Status
+
+[![CI/CD Pipeline](https://github.com/Jativax/sq-qb-integration/actions/workflows/production-ci-cd.yml/badge.svg)](https://github.com/Jativax/sq-qb-integration/actions/workflows/production-ci-cd.yml)
+
+### Features
+
+- ✅ Automated testing with Playwright
+- ✅ Webhook signature validation bypass for tests
+- ✅ Rate limiting with exponential backoff
+- ✅ Docker containerization
+- ✅ Frontend build verification
+- ✅ Comprehensive error handling
+
+### Running CI Locally
+
+```bash
+# Validate CI readiness
+bash scripts/validate-ci-readiness.sh
+
+# Run full CI pipeline locally
+npx pnpm ci:checks
+
+# Monitor CI status
+bash scripts/monitor-ci.sh
+```
+
+### Troubleshooting
+
+If CI fails, check:
+
+1. Environment variables in CI workflow
+2. Docker service health: `docker compose ps`
+3. Frontend build: `ls -la apps/frontend/dist/`
+4. Backend logs: `docker compose logs backend`
+5. Test artifacts: `packages/e2e-tests/test-results/`
+
 ## 🚀 **Recent Infrastructure Modernizations & Improvements**
 
 This project has undergone comprehensive modernization to ensure production-ready, scalable, and maintainable infrastructure. Below are the key improvements implemented:

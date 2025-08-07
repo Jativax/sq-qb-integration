@@ -1,0 +1,15 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+echo "🔍 Running pre-push CI validation..."
+
+# Run quick checks before pushing
+npm run lint
+npm run format:check
+
+# Validate CI readiness
+if [ -f "scripts/validate-ci-readiness.sh" ]; then
+    bash scripts/validate-ci-readiness.sh
+fi
+
+echo "✅ Pre-push validation complete" 
