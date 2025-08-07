@@ -52,6 +52,11 @@ jobs:
         run: sudo sysctl -w vm.overcommit_memory=1
 
       # Step 3.6: Install Playwright browser dependencies for Ubuntu 24.04
+      # Alternative: Use official Playwright action (uncomment to use):
+      # - uses: microsoft/playwright-github-action@v1
+      #   with:
+      #     browsers: chromium firefox webkit
+      #     install-deps: true
       - name: Install Playwright Browser Dependencies
         run: |
           sudo apt-get update
