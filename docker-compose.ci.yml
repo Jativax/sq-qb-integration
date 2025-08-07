@@ -32,14 +32,14 @@ services:
           'CMD',
           'node',
           '-e',
-          "require('http').get('http://localhost:3001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
+          "require('http').get('http://127.0.0.1:3001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
         ]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 60s
     networks:
-      - sq-qb-network
+      - default
 
   frontend:
     build:
@@ -69,8 +69,4 @@ services:
       retries: 10
       start_period: 30s
     networks:
-      - sq-qb-network
-
-networks:
-  sq-qb-network:
-    driver: bridge
+      - default
