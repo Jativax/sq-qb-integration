@@ -15,7 +15,7 @@ success() {
 
 cleanup() {
   echo "ℹ️  Performing cleanup..."
-  pnpm docker:down || true # Run even if previous commands failed
+  docker compose -f docker-compose.yml -f docker-compose.ci.yml down --volumes || true
   echo "ℹ️  Cleanup completed"
 }
 
@@ -65,14 +65,14 @@ step "5" "End-to-End Test Execution" "This step requires Docker environment and 
 
 # Start Docker services
 echo "ℹ️  Starting Docker services (PostgreSQL, Redis, Backend CI)..."
-pnpm docker:up:ci:direct
+docker compose -f docker-compose.yml up -d db redis pgbouncer
 
 # Wait for services to be healthy using Docker health checks
 echo "ℹ️  Waiting for services to be healthy..."
 echo "ℹ️  Checking PostgreSQL health..."
-timeout 60s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T db pg_isready -U "${POSTGRES_USER:-sq_qb_user}" -d "${POSTGRES_DB:-sq_qb_integration}"; do sleep 2; done'
+timeout 60s bash -c 'until docker compose -f docker-compose.yml exec -T db pg_isready -U "${POSTGRES_USER:-sq_qb_user}" -d "${POSTGRES_DB:-sq_qb_integration}"; do sleep 2; done'
 echo "ℹ️  Checking Redis health..."
-timeout 30s bash -c 'until docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
+timeout 30s bash -c 'until docker compose -f docker-compose.yml exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
 
 # Handle Redis memory overcommit warning (optional optimization)
 echo "ℹ️  Configuring Redis memory settings..."
@@ -87,7 +87,7 @@ echo "✅ All infrastructure services are healthy"
 
 # Add diagnostic to check if bind-mount is shadowing /app
 echo "ℹ️  Checking for bind-mount issues..."
-docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci sh -lc "
+docker compose -f docker-compose.yml run --rm backend_service_runner sh -lc "
   echo 'PWD: \$(pwd)'
   echo '=== /app contents ==='
   ls -la /app/ | head -10
@@ -101,7 +101,7 @@ docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci
 
 # Apply database migrations and seeding INSIDE the Docker network
 echo "ℹ️  Verifying app contents in container..."
-docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci sh -lc "
+docker compose -f docker-compose.yml run --rm backend_service_runner sh -lc "
   set -euo pipefail
   node -e \"console.log(require.resolve('@prisma/client'))\"
   test -f /app/dist/prisma/seed.js
@@ -110,13 +110,13 @@ docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci
 "
 
 echo "ℹ️  Verifying CI environment configuration..."
-echo "NODE_ENV in backend-ci:"
-docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci sh -lc 'echo $NODE_ENV'
-echo "DATABASE_URL in backend-ci:"
-docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci sh -lc 'echo ${DATABASE_URL:-"(not set)"}'
+echo "NODE_ENV in backend_service_runner:"
+docker compose -f docker-compose.yml run --rm backend_service_runner sh -lc 'echo $NODE_ENV'
+echo "DATABASE_URL in backend_service_runner:"
+docker compose -f docker-compose.yml run --rm backend_service_runner sh -lc 'echo ${DATABASE_URL:-"(not set)"}'
 
 echo "ℹ️  Verifying Prisma versions..."
-docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci \
+docker compose -f docker-compose.yml run --rm backend_service_runner \
   sh -c "
     set -e
     cd /app
@@ -138,17 +138,16 @@ docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci
   "
 
 echo "ℹ️  Applying database migrations..."
-docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci \
-  sh -c "cd /app && npx prisma migrate deploy"
+docker compose -f docker-compose.yml run --rm backend_service_runner \
+  pnpm prisma migrate deploy --schema prisma/schema.prisma --skip-generate --noInteractive
 
 echo "ℹ️  Seeding the database..."
-docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T backend-ci \
-  sh -c "cd /app && npx prisma db seed"
+docker compose -f docker-compose.yml run --rm backend_service_runner \
+  pnpm db:seed
 
 # Start backend and frontend services for E2E testing
 echo "ℹ️  Starting backend and frontend services for E2E testing..."
-# Use --no-deps to avoid starting PgBouncer dependency
-docker compose -f docker-compose.yml -f docker-compose.ci.yml --profile e2e up -d --no-deps backend frontend
+docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build backend frontend
 
 # Wait for application services to be ready using health checks
 echo "ℹ️  Waiting for application services to be ready..."

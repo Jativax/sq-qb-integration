@@ -12,8 +12,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your_secure_password}
     ports:
       - '5432:5432'
-    networks:
-      - sq-qb-network
     healthcheck:
       test:
         [
@@ -33,8 +31,6 @@ services:
       - redisdata:/data
     ports:
       - '6379:6379'
-    networks:
-      - sq-qb-network
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
@@ -59,14 +55,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    networks:
-      - sq-qb-network
 
   # New service for running one-off commands like migrations and seeding
   backend_service_runner:
     build:
       context: .
-      dockerfile: ./apps/backend/Dockerfile
+      dockerfile: ./apps/backend/Dockerfile.ci
     container_name: sq-qb-backend-runner
     # This service is not meant to run continuously; it's a template for `docker compose run`.
     command: sleep infinity
@@ -82,73 +76,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - NODE_ENV=development
-    networks:
-      - sq-qb-network
-
-  # Backend application service for E2E testing
-  backend:
-    build:
-      context: .
-      dockerfile: ./apps/backend/Dockerfile
-    container_name: sq-qb-backend
-    # NO montar el workspace: tapa /dist de la imagen
-    # volumes:  (eliminar)
-    command: ['node', 'dist/server.js']
-    environment:
-      - NODE_ENV=production
-      - HOST=0.0.0.0
-      - PORT=3001
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-sq_qb_user}:${POSTGRES_PASSWORD:-your_secure_password}@pgbouncer:6432/${POSTGRES_DB:-sq_qb_integration}?schema=public
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    ports:
-      - '127.0.0.1:3001:3001'
-    profiles:
-      - 'e2e'
-    # Make dependency on Redis more robust
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy # This is good, but we add an app-level retry above
-      pgbouncer:
-        condition: service_started
-    healthcheck:
-      test:
-        ['CMD-SHELL', 'wget -q --spider http://localhost:3001/health || exit 1']
-      interval: 5s
-      timeout: 5s
-      retries: 30
-      start_period: 40s
-    networks:
-      - sq-qb-network
-
-  # Frontend application service for E2E testing
-  frontend:
-    build:
-      context: .
-      dockerfile: ./apps/frontend/Dockerfile
-    container_name: sq-qb-frontend
-    ports:
-      - '127.0.0.1:5173:80'
-    depends_on:
-      backend:
-        condition: service_healthy
-    healthcheck:
-      test: ['CMD-SHELL', 'wget -q --spider http://localhost/health || exit 1']
-      interval: 10s
-      timeout: 5s
-      retries: 20
-      start_period: 30s
-    networks:
-      - sq-qb-network
-    profiles:
-      - e2e
 
 volumes:
   pgdata:
   redisdata:
-
-networks:
-  sq-qb-network:
-    driver: bridge

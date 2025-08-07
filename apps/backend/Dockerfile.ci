@@ -1,0 +1,31 @@
+# ---------- builder ----------
+FROM node:18-alpine AS builder
+WORKDIR /app
+RUN npm install -g pnpm@8.6.12
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/backend/package.json ./apps/backend/
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# build TS → JS
+COPY apps/backend ./apps/backend
+RUN pnpm --filter ./apps/backend exec prisma generate --schema prisma/schema.prisma \
+ && pnpm --filter ./apps/backend run build \
+ && pnpm --filter ./apps/backend run build:seed
+
+# ---------- prod ----------
+FROM node:18-alpine AS prod
+WORKDIR /app
+ENV NODE_ENV=production
+# Add native dependencies for Prisma engines and TLS connections
+RUN apk add --no-cache openssl ca-certificates libstdc++
+# copy only the backend artefacts + prod deps
+COPY --from=builder /app/apps/backend/dist ./dist
+COPY --from=builder /app/apps/backend/prisma ./prisma
+COPY --from=builder /app/apps/backend/package.json ./package.json
+COPY apps/backend/start.sh ./start.sh
+RUN chmod +x ./start.sh
+# Install production dependencies with npm for proper node_modules structure
+RUN npm install --omit=dev
+HEALTHCHECK --interval=10s --start-period=20s --timeout=5s --retries=6 \
+  CMD pgrep node || exit 1
+CMD ["./start.sh"]

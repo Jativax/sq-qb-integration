@@ -31,6 +31,9 @@ importers:
       husky:
         specifier: ^8.0.3
         version: 8.0.3
+      playwright:
+        specifier: ^1.43.0
+        version: 1.43.0
       prettier:
         specifier: ^3.0.0
         version: 3.0.0
@@ -79,6 +82,9 @@ importers:
       redis:
         specifier: ^4.6.7
         version: 4.6.7
+      wait-on:
+        specifier: ^8.0.4
+        version: 8.0.4
       zod:
         specifier: ^3.21.4
         version: 3.21.4
@@ -214,11 +220,14 @@ importers:
   packages/e2e-tests:
     devDependencies:
       '@playwright/test':
-        specifier: ^1.40.0
-        version: 1.40.0
+        specifier: ^1.43.0
+        version: 1.43.0
       '@types/node':
         specifier: ^20.0.0
         version: 20.4.2
+      playwright:
+        specifier: ^1.43.0
+        version: 1.43.0
       typescript:
         specifier: ^5.0.0
         version: 5.8.3
@@ -1237,7 +1246,6 @@ packages:
       {
         integrity: sha512-/c6rf4UJlmHlC9b5BaNvzAcFv7HZ2QHaV0D4/HNlBdvFnvQq8RI4kYdhyPCl7Xj+oWvTWQ8ujhqS53LIgAe6KQ==,
       }
-    dev: true
 
   /@hapi/topo@5.1.0:
     resolution:
@@ -1246,7 +1254,6 @@ packages:
       }
     dependencies:
       '@hapi/hoek': 9.3.0
-    dev: true
 
   /@headlessui/react@2.2.7(react-dom@19.1.0)(react@19.1.0):
     resolution:
@@ -1889,16 +1896,16 @@ packages:
     engines: { node: ^12.20.0 || ^14.18.0 || >=16.0.0 }
     dev: true
 
-  /@playwright/test@1.40.0:
+  /@playwright/test@1.43.0:
     resolution:
       {
-        integrity: sha512-PdW+kn4eV99iP5gxWNSDQCbhMaDVej+RXL5xr6t04nbKLCBwYtA046t7ofoczHOm8u6c+45hpDKQVZqtqwkeQg==,
+        integrity: sha512-Ebw0+MCqoYflop7wVKj711ccbNlrwTBCtjY5rlbiY9kHL2bCYxq+qltK6uPsVBGGAOb033H2VO0YobcQVxoW7Q==,
       }
     engines: { node: '>=16' }
     deprecated: Please update to the latest version of Playwright to test up-to-date browsers.
     hasBin: true
     dependencies:
-      playwright: 1.40.0
+      playwright: 1.43.0
     dev: true
 
   /@prisma/client@5.1.1(prisma@5.1.1):
@@ -2334,21 +2341,18 @@ packages:
       }
     dependencies:
       '@hapi/hoek': 9.3.0
-    dev: true
 
   /@sideway/formula@3.0.1:
     resolution:
       {
         integrity: sha512-/poHZJJVjx3L+zVD6g9KgHfYnb443oi7wLu/XKojDviHy6HOEOA6z1Trk5aR1dGcmPenJEgb2sK2I80LeS3MIg==,
       }
-    dev: true
 
   /@sideway/pinpoint@2.0.0:
     resolution:
       {
         integrity: sha512-RNiOoTPkptFtSVzQevY/yWtZwf/RxyVnPy/OcA9HBM3MlGDnBEYL5B41H0MTn0Uec8Hi+2qUtTfG2WWZBmMejQ==,
       }
-    dev: true
 
   /@sinclair/typebox@0.27.8:
     resolution:
@@ -6758,7 +6762,6 @@ packages:
       '@sideway/address': 4.1.5
       '@sideway/formula': 3.0.1
       '@sideway/pinpoint': 2.0.0
-    dev: true
 
   /joycon@3.1.1:
     resolution:
@@ -7293,7 +7296,6 @@ packages:
       {
         integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==,
       }
-    dev: true
 
   /minipass@3.3.6:
     resolution:
@@ -8008,24 +8010,24 @@ packages:
       find-up: 4.1.0
     dev: true
 
-  /playwright-core@1.40.0:
+  /playwright-core@1.43.0:
     resolution:
       {
-        integrity: sha512-fvKewVJpGeca8t0ipM56jkVSU6Eo0RmFvQ/MaCQNDYm+sdvKkMBBWTE1FdeMqIdumRaXXjZChWHvIzCGM/tA/Q==,
+        integrity: sha512-iWFjyBUH97+pUFiyTqSLd8cDMMOS0r2ZYz2qEsPjH8/bX++sbIJT35MSwKnp1r/OQBAqC5XO99xFbJ9XClhf4w==,
       }
     engines: { node: '>=16' }
     hasBin: true
     dev: true
 
-  /playwright@1.40.0:
+  /playwright@1.43.0:
     resolution:
       {
-        integrity: sha512-gyHAgQjiDf1m34Xpwzaqb76KgfzYrhK7iih+2IzcOCoZWr/8ZqmdBw+t0RU85ZmfJMgtgAiNtBQ/KS2325INXw==,
+        integrity: sha512-SiOKHbVjTSf6wHuGCbqrEyzlm6qvXcv7mENP+OZon1I07brfZLGdfWV0l/efAzVx7TF3Z45ov1gPEkku9q25YQ==,
       }
     engines: { node: '>=16' }
     hasBin: true
     dependencies:
-      playwright-core: 1.40.0
+      playwright-core: 1.43.0
     optionalDependencies:
       fsevents: 2.3.2
     dev: true
@@ -8645,7 +8647,6 @@ packages:
       }
     dependencies:
       tslib: 2.8.1
-    dev: true
 
   /safe-buffer@5.2.1:
     resolution:
@@ -9544,7 +9545,6 @@ packages:
       rxjs: 7.8.2
     transitivePeerDependencies:
       - debug
-    dev: true
 
   /walker@1.0.8:
     resolution:
