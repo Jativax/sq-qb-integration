@@ -30,6 +30,31 @@ RUN pnpm --filter backend exec prisma generate --schema prisma/schema.prisma
 RUN pnpm --filter backend run build \
  && pnpm --filter backend run build:seed
 
+# Ensure seed.js is properly generated and copied
+RUN set -eux; \
+    echo "=== Checking seed build process ==="; \
+    echo "Contents of apps/backend/prisma:"; \
+    ls -la apps/backend/prisma/ || true; \
+    echo "=== Running seed build explicitly ==="; \
+    cd apps/backend && pnpm run build:seed; \
+    echo "=== Checking dist directory after build ==="; \
+    ls -la apps/backend/dist/ || true; \
+    echo "=== Creating prisma directory if missing ==="; \
+    mkdir -p apps/backend/dist/prisma; \
+    echo "=== Copying seed.js to expected location ==="; \
+    if [ -f "apps/backend/dist/seed.js" ]; then \
+      cp apps/backend/dist/seed.js apps/backend/dist/prisma/seed.js; \
+      echo "✅ Copied seed.js from dist/ to dist/prisma/"; \
+    elif [ -f "apps/backend/prisma/seed.js" ]; then \
+      cp apps/backend/prisma/seed.js apps/backend/dist/prisma/seed.js; \
+      echo "✅ Copied seed.js from prisma/ to dist/prisma/"; \
+    else \
+      echo "❌ seed.js not found in any expected location"; \
+      echo "Searching for seed.js files:"; \
+      find apps/backend -name "seed.js" -type f -print || echo "No seed.js files found"; \
+      exit 1; \
+    fi
+
 # Assert seed output exists with diagnostics if missing
 RUN set -eux; \
     SEED_PATH="apps/backend/dist/prisma/seed.js"; \
