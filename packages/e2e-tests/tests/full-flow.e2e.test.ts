@@ -11,34 +11,38 @@ const VALID_WEBHOOK_PAYLOAD = {
     type: 'order',
     id: 'test-order-789',
     object: {
-      id: 'test-order-789',
-      location_id: 'test-location-123',
-      state: 'COMPLETED',
-      total_money: {
-        amount: 1500,
-        currency: 'USD',
+      order: {
+        id: 'test-order-789',
+        location_id: 'test-location-123',
+        state: 'COMPLETED',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        total_money: {
+          amount: 1500,
+          currency: 'USD',
+        },
+        line_items: [
+          {
+            uid: 'test-line-item-1',
+            name: 'Test Coffee',
+            quantity: '2',
+            base_price_money: {
+              amount: 750,
+              currency: 'USD',
+            },
+          },
+        ],
+        tenders: [
+          {
+            id: 'test-tender-1',
+            type: 'CARD',
+            amount_money: {
+              amount: 1500,
+              currency: 'USD',
+            },
+          },
+        ],
       },
-      line_items: [
-        {
-          uid: 'test-line-item-1',
-          name: 'Test Coffee',
-          quantity: '2',
-          base_price_money: {
-            amount: 750,
-            currency: 'USD',
-          },
-        },
-      ],
-      tenders: [
-        {
-          id: 'test-tender-1',
-          type: 'CARD',
-          amount_money: {
-            amount: 1500,
-            currency: 'USD',
-          },
-        },
-      ],
     },
   },
 };
@@ -86,12 +90,14 @@ async function clearTestData() {
 async function sendWebhookWithRetry(
   orderId?: string,
   eventId?: string,
-  retries = 3
+  retries = 3,
+  payloadOverride?: unknown
 ): Promise<Response> {
   const testOrderId = orderId || `order-${Date.now()}`;
   const testEventId = eventId || crypto.randomUUID();
 
-  const webhook = {
+  const webhook = (payloadOverride as Record<string, unknown>) || {
+    merchant_id: 'test-merchant-id',
     type: 'order.fulfilled',
     event_id: testEventId,
     created_at: new Date().toISOString(),
@@ -158,9 +164,9 @@ async function sendWebhookWithRetry(
   throw new Error('Max retries reached for webhook request');
 }
 
-// Legacy function for backward compatibility
+// Legacy function; allow passing a payload for tests that provide one
 async function sendWebhook(_payload = VALID_WEBHOOK_PAYLOAD) {
-  return sendWebhookWithRetry();
+  return sendWebhookWithRetry(undefined, undefined, 3, _payload);
 }
 
 // Helper function to wait for UI updates
