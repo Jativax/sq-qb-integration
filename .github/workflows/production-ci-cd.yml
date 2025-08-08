@@ -211,16 +211,17 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.ci.yml ps
 
           echo "🚀 Starting backend and frontend services..."
-          # Services are already started by docker:up:ci:direct, just ensure they're running
+          # Ensure latest images by building first, then start
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml build backend frontend
           docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d backend frontend
 
           echo "📋 Checking container status after starting services..."
           docker compose -f docker-compose.yml -f docker-compose.ci.yml ps
 
           echo "⏳ Waiting for services to be ready..."
-          # Use a more robust health check approach
-          timeout 120s bash -c 'until curl -f http://127.0.0.1:3001/health; do echo "Waiting for backend..."; sleep 5; done'
-          timeout 60s bash -c 'until curl -f http://127.0.0.1:5173/health; do echo "Waiting for frontend..."; sleep 5; done'
+          # Use a more robust health check approach with longer timeouts
+          timeout 240s bash -c 'until curl -sf http://127.0.0.1:3001/health; do echo "Waiting for backend..."; sleep 5; done'
+          timeout 120s bash -c 'until curl -sf http://127.0.0.1:5173/health; do echo "Waiting for frontend..."; sleep 5; done'
 
           echo "✅ All services are ready!"
 
