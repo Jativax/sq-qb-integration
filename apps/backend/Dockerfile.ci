@@ -31,10 +31,10 @@ COPY --from=builder /repo/apps/backend/prisma ./prisma
 COPY --from=builder /repo/apps/backend/package.json ./
 COPY --from=builder /repo/pnpm-lock.yaml ./pnpm-lock.yaml
 
-# do a prod-only install for the backend package (now with prisma CLI available)
+# do a prod-only install for the backend package (standalone, not workspace)
 RUN npm install -g pnpm@8.6.12 && \
-    pnpm install --prod --filter . && \
-    pnpm --filter . exec prisma generate
+    pnpm install --prod && \
+    pnpm exec prisma generate
 
 ENV NODE_ENV=production PORT=3001 HOST=0.0.0.0
 EXPOSE 3001
