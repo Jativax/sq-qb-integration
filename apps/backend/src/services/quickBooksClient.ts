@@ -114,11 +114,8 @@ export class QuickBooksClient {
   async createSalesReceipt(
     salesReceiptData: QBSalesReceiptData
   ): Promise<QBSalesReceipt> {
-    // Test/CI bypass to avoid external dependency failures
-    if (
-      process.env['NODE_ENV'] === 'test' ||
-      process.env['MOCK_EXTERNAL_APIS'] === 'true'
-    ) {
+    // CI/E2E bypass to avoid external dependency failures
+    if (process.env['MOCK_EXTERNAL_APIS'] === 'true') {
       const now = new Date().toISOString();
       return {
         Id: `mock-receipt-${Date.now()}`,

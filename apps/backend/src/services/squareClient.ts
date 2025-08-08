@@ -68,11 +68,8 @@ export class SquareApiClient {
   }
 
   async getOrderById(orderId: string): Promise<SquareOrder> {
-    // Test/CI bypass to avoid external dependency failures
-    if (
-      process.env['NODE_ENV'] === 'test' ||
-      process.env['MOCK_EXTERNAL_APIS'] === 'true'
-    ) {
+    // CI/E2E bypass to avoid external dependency failures
+    if (process.env['MOCK_EXTERNAL_APIS'] === 'true') {
       return this.getMockOrder(orderId);
     }
 
