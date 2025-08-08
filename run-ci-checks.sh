@@ -144,11 +144,12 @@ echo "✅ All infrastructure services are healthy"
 echo "ℹ️  Preparing backend dependencies inside container (mounted workspace)..."
 docker compose -f docker-compose.yml run --rm backend_service_runner sh -lc "
   set -e
-  cd /app/apps/backend
-  echo '🔧 Installing production dependencies...'
-  pnpm install --prod --ignore-scripts --no-frozen-lockfile
-  echo '🔧 Generating Prisma client...'
-  pnpm exec prisma generate
+  echo '🔧 Installing production dependencies for backend only...'
+  pnpm --filter ./apps/backend install --prod --ignore-scripts --no-frozen-lockfile
+  echo '🔧 Generating Prisma client (backend)...'
+  pnpm --filter ./apps/backend exec prisma generate
+  echo '🔧 Building seed script (backend)...'
+  pnpm --filter ./apps/backend run build:seed
   echo '✅ Backend dependencies ready'
 "
 
