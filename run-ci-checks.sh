@@ -87,6 +87,13 @@ REDIS_PORT=6380 npx pnpm --filter backend test
 success "All backend tests passed"
 
 # STEP 5: End-to-End Testing with Docker Environment
+# Allow skipping in CI to avoid duplicating E2E env setup handled by workflow
+if [ "${SKIP_DOCKER_E2E:-false}" = "true" ]; then
+  echo "ℹ️  Skipping Step 5 (Docker E2E) because SKIP_DOCKER_E2E=true"
+  echo "✅ ci:checks completed without Docker E2E"
+  exit 0
+fi
+
 step "5" "End-to-End Test Execution" "This step requires Docker environment and will test the full application flow"
 
 # Start Docker services

@@ -146,6 +146,7 @@ jobs:
         run: pnpm ci:checks
         env:
           # Provide test environment variables
+          SKIP_DOCKER_E2E: true
           NODE_ENV: test
           POSTGRES_USER: testuser
           POSTGRES_PASSWORD: testpass
@@ -189,8 +190,8 @@ jobs:
           PASSWORD_PEPPER: test-pepper-at-least-16-chars
           WORKER_CONCURRENCY: 1
         run: |
-          echo "🐳 Starting Docker services for E2E tests..."
-          pnpm docker:up:ci:direct
+          echo "🐳 Starting infrastructure (db, redis) only for E2E tests..."
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d db redis
 
           echo "📋 Checking container status..."
           docker compose -f docker-compose.yml -f docker-compose.ci.yml ps
