@@ -23,18 +23,25 @@ export class OrderProcessor {
       // Step 1: Extract order ID from webhook payload
       // (Already done by Zod validation and passed as argument)
 
-      // Step 2: Create initial SquareOrder record with PENDING status
-      logger.debug('Creating initial SquareOrder record...');
-      squareOrderRecord = await this.prismaClient.squareOrder.create({
-        data: {
+      // Step 2: Create or update initial SquareOrder record with PENDING status (idempotent)
+      logger.debug('Upserting initial SquareOrder record...');
+      squareOrderRecord = await this.prismaClient.squareOrder.upsert({
+        where: { squareOrderId: orderId },
+        create: {
           squareOrderId: orderId,
           status: 'PENDING',
-          payload: webhookPayload as never, // Store the full webhook payload
+          payload: webhookPayload as never,
+        },
+        update: {
+          // Keep payload of the most recent webhook for traceability
+          payload: webhookPayload as never,
+          // Ensure status is at least PENDING while processing
+          status: 'PENDING',
         },
       });
       logger.info(
         { squareOrderRecordId: squareOrderRecord.id },
-        'SquareOrder record created'
+        'SquareOrder record created/updated'
       );
 
       // Step 3: Fetch full order details from Square API

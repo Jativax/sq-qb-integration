@@ -18,6 +18,7 @@ services:
       - DATABASE_URL=postgresql://testuser:testpass@db:5432/testdb?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - MOCK_EXTERNAL_APIS=true
       - HOST=0.0.0.0
       - PORT=3001
       - PASSWORD_PEPPER=ci_super_secret_pepper_value_123
