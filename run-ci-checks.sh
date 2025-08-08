@@ -99,7 +99,7 @@ echo "ℹ️  Checking PostgreSQL health..."
 attempts=0
 max_attempts=30
 while [ $attempts -lt $max_attempts ]; do
-  if docker compose -f docker-compose.yml exec -T db pg_isready -U "${POSTGRES_USER:-sq_qb_user}" -d "${POSTGRES_DB:-sq_qb_integration}" > /dev/null 2>&1; then
+  if docker compose -f docker-compose.yml exec -T db pg_isready -U "${POSTGRES_USER:-testuser}" -d "${POSTGRES_DB:-testdb}" > /dev/null 2>&1; then
     break
   fi
   attempts=$((attempts + 1))
@@ -141,26 +141,36 @@ fi
 echo "✅ All infrastructure services are healthy"
 
 # Add diagnostic to check if bind-mount is shadowing /app
+echo "ℹ️  Preparing backend dependencies inside container (mounted workspace)..."
+docker compose -f docker-compose.yml run --rm backend_service_runner sh -lc "
+  set -e
+  cd /app/apps/backend
+  echo '🔧 Installing production dependencies...'
+  pnpm install --prod --ignore-scripts --no-frozen-lockfile
+  echo '🔧 Generating Prisma client...'
+  pnpm exec prisma generate
+  echo '✅ Backend dependencies ready'
+"
+
 echo "ℹ️  Checking for bind-mount issues..."
 docker compose -f docker-compose.yml run --rm backend_service_runner sh -lc "
   echo 'PWD: \$(pwd)'
-  echo '=== /app contents ==='
-  ls -la /app/ | head -10
-  echo '=== /app/node_modules check ==='
-  ls -ld /app/node_modules || echo '❌ /app/node_modules missing - bind-mount issue!'
-  echo '=== @prisma/client check ==='
-  ls -ld /app/node_modules/@prisma || echo '❌ @prisma missing - bind-mount issue!'
-  echo '=== require.resolve test ==='
-  node -e \"console.log('@prisma/client path:', require.resolve('@prisma/client'))\" || echo '❌ @prisma/client not resolvable'
+  echo '=== /app/apps/backend contents ==='
+  ls -la /app/apps/backend | head -20
+  echo '=== /app/apps/backend/node_modules check ==='
+  ls -ld /app/apps/backend/node_modules || echo '❌ node_modules missing'
+  echo '=== require.resolve test in backend ==='
+  cd /app/apps/backend && node -e \"console.log('@prisma/client path:', require.resolve('@prisma/client'))\" || echo '❌ @prisma/client not resolvable'
 "
 
 # Apply database migrations and seeding INSIDE the Docker network
 echo "ℹ️  Verifying app contents in container..."
 docker compose -f docker-compose.yml run --rm backend_service_runner sh -lc "
   set -euo pipefail
+  cd /app/apps/backend
   node -e \"console.log(require.resolve('@prisma/client'))\"
-  test -f /app/dist/prisma/seed.js
-  test -f /app/prisma/schema.prisma
+  test -f /app/apps/backend/dist/prisma/seed.js
+  test -f /app/apps/backend/prisma/schema.prisma
   echo '✅ All required files present'
 "
 
@@ -174,7 +184,7 @@ echo "ℹ️  Verifying Prisma versions..."
 docker compose -f docker-compose.yml run --rm backend_service_runner \
   sh -c "
     set -e
-    cd /app
+    cd /app/apps/backend
 
     # Show versions for logs
     echo '---- Prisma CLI version ----'
@@ -194,11 +204,11 @@ docker compose -f docker-compose.yml run --rm backend_service_runner \
 
 echo "ℹ️  Applying database migrations..."
 docker compose -f docker-compose.yml run --rm backend_service_runner \
-  npx prisma migrate deploy --schema prisma/schema.prisma --skip-generate --noInteractive
+  sh -lc "cd /app/apps/backend && npx prisma migrate deploy --schema prisma/schema.prisma --skip-generate --noInteractive"
 
 echo "ℹ️  Seeding the database..."
 docker compose -f docker-compose.yml run --rm backend_service_runner \
-  npx prisma db seed
+  sh -lc "cd /app/apps/backend && npx prisma db seed"
 
 # Start backend and frontend services for E2E testing
 echo "ℹ️  Starting backend and frontend services for E2E testing..."
