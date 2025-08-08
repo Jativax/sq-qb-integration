@@ -92,12 +92,12 @@ async function globalSetup() {
 
     console.error('--- Last 100 lines of backend logs ---');
     execSync(
-      'docker compose -f docker-compose.yml -f docker-compose.ci.yml logs backend --tail 100',
+      'docker compose -f ../../docker-compose.yml -f ../../docker-compose.ci.yml logs backend --tail 100',
       { stdio: 'inherit' }
     );
     console.error('--- Last 100 lines of frontend logs ---');
     execSync(
-      'docker compose -f docker-compose.yml -f docker-compose.ci.yml logs frontend --tail 100',
+      'docker compose -f ../../docker-compose.yml -f ../../docker-compose.ci.yml logs frontend --tail 100',
       { stdio: 'inherit' }
     );
     throw new Error('Service readiness check failed.');
