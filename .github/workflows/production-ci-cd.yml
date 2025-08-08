@@ -256,7 +256,7 @@ jobs:
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
             echo "🔄 Attempt $attempt/$MAX_ATTEMPTS: Running E2E tests..."
             
-            npx pnpm test:e2e
+            pnpm --filter @sq-qb-integration/e2e-tests exec playwright test --reporter=line --trace retain-on-failure
             TEST_EXIT_CODE=$?
             
             if [ $TEST_EXIT_CODE -eq 0 ]; then
@@ -291,6 +291,23 @@ jobs:
           fi
 
           echo "✅ E2E tests passed successfully"
+
+      # Upload Playwright artifacts on failure
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.sha }}
+          path: packages/e2e-tests/playwright-report
+          retention-days: 7
+
+      - name: Upload Playwright test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-${{ github.sha }}
+          path: packages/e2e-tests/test-results
+          retention-days: 7
 
       # Step 5: Set up Docker Buildx for advanced build features
       - name: Set up Docker Buildx
