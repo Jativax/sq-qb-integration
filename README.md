@@ -28,6 +28,7 @@
   - [Unit & Integration Tests](#unit--integration-tests)
   - [End-to-End Tests](#end-to-end-tests)
 - [🚀 CI/CD Pipeline](#-cicd-pipeline)
+- [🧩 Test & Mock Modes](#-test--mock-modes)
 - [📊 Available Scripts](#-available-scripts)
 - [🔧 Troubleshooting & FAQ](#-troubleshooting--faq)
 - [🤝 Contributing](#-contributing)
@@ -321,6 +322,7 @@ npx pnpm test:e2e:debug
 - ✅ **Security Scanning**: Trivy vulnerability scanning + SBOM generation
 - ✅ **Health Checks**: Service readiness validation
 - ✅ **Zero Manual Intervention**: Fully automated pipeline
+- ✅ **Failure Artifacts**: Playwright HTML reports and traces uploaded on failures
 
 ### **Running CI Locally**
 
@@ -334,6 +336,71 @@ npx pnpm ci:checks
 # Monitor CI status
 bash scripts/monitor-ci.sh
 ```
+
+---
+
+## 🧩 Test & Mock Modes
+
+### Webhook Payload Requirements
+
+The backend validates Square webhooks with Zod. Your JSON payload must include:
+
+- `merchant_id` (string)
+- `type` (one of: `order.created`, `order.updated`, `order.fulfilled`)
+- `event_id` (UUID recommended)
+- `created_at` (ISO string)
+- `data`:
+  - `type` (string)
+  - `id` (string)
+  - `object.order` (object) with fields:
+    - `id`, `location_id`, `state`
+    - `created_at`, `updated_at` (ISO strings)
+    - `total_money.amount`, `total_money.currency`
+
+Example payload (minimal):
+
+```json
+{
+  "merchant_id": "test-merchant-id",
+  "type": "order.fulfilled",
+  "event_id": "892f696b-e54c-4c12-8bc4-0f8408fc8419",
+  "created_at": "2025-01-08T12:00:00.000Z",
+  "data": {
+    "type": "order",
+    "id": "order-123",
+    "object": {
+      "order": {
+        "id": "order-123",
+        "location_id": "loc-1",
+        "state": "COMPLETED",
+        "created_at": "2025-01-08T12:00:00.000Z",
+        "updated_at": "2025-01-08T12:00:00.000Z",
+        "total_money": { "amount": 5000, "currency": "USD" }
+      }
+    }
+  }
+}
+```
+
+### E2E Signature Bypass
+
+- E2E tests may send header `X-Square-Signature: BYPASS_FOR_E2E_TEST`.
+- In development/CI this is accepted for E2E to avoid HMAC signing complexity.
+
+### External API Mocking (CI-safe)
+
+- Square and QuickBooks client calls are mocked when `MOCK_EXTERNAL_APIS=true`.
+- This is enabled in CI (`docker-compose.ci.yml`) and can be enabled locally:
+
+```bash
+export MOCK_EXTERNAL_APIS=true
+pnpm dev
+```
+
+### Idempotent Order Processing
+
+- The backend uses an upsert on `squareOrderId` to avoid duplicates when the same order is retried or re-delivered by Square.
+- Safe to resend the same webhook; duplicates are ignored.
 
 ### **Recent Critical Fixes (January 2025)**
 

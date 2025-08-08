@@ -71,6 +71,8 @@ npx pnpm docker:up
 - Database: PostgreSQL on port 5432
 - Queue: Redis on port 6379
 
+> Tip: In CI we run with `MOCK_EXTERNAL_APIS=true` to avoid hitting real Square/QuickBooks. You can enable this locally as well if needed.
+
 ### **Running Tests**
 
 **Run All E2E Tests**
@@ -96,6 +98,32 @@ npx pnpm test:e2e:debug
 ```bash
 cd packages/e2e-tests && npm run test:report
 ```
+
+### **Webhook Payload Requirements**
+
+E2E tests send a Square-like webhook. The backend expects the following shape:
+
+- `merchant_id` (string)
+- `type` ∈ {`order.created`, `order.updated`, `order.fulfilled`}
+- `event_id` (UUID recommended)
+- `created_at` (ISO string)
+- `data` → `object.order` with `id`, `location_id`, `state`, `created_at`, `updated_at`, `total_money.amount`, `total_money.currency`.
+
+For tests, we set header `X-Square-Signature: BYPASS_FOR_E2E_TEST` which the backend accepts in test mode.
+
+### **External Mocks**
+
+- Enable mocks for Square/QuickBooks in CI using `MOCK_EXTERNAL_APIS=true`. This is configured in `docker-compose.ci.yml`.
+- To run locally with mocks:
+
+```bash
+export MOCK_EXTERNAL_APIS=true
+pnpm dev:all
+```
+
+### **Idempotency**
+
+- Order processing is idempotent. Re-sending the same order id will not create duplicates (backend upserts on `squareOrderId`).
 
 ## 📋 Test Scenarios
 
